@@ -61,7 +61,20 @@ describe('generated tree', () => {
     const stubs = await readdir(GH_AGENTS_DIR);
 
     for (const agent of agents) {
-      assert.ok(stubs.includes(agent), `missing .github/agents/${agent}`);
+      // Copilot CLI documents the .agent.md extension; VS Code accepts any
+      // .md in .github/agents, so .agent.md is the form both load.
+      const expected = agent.replace(/\.md$/, '.agent.md');
+      assert.ok(stubs.includes(expected), `missing .github/agents/${expected}`);
+    }
+  });
+
+  test('agent stubs use the .agent.md extension', async () => {
+    for (const name of await readdir(GH_AGENTS_DIR)) {
+      assert.match(
+        name,
+        /\.agent\.md$/,
+        `${name} must end in .agent.md — Copilot CLI will not load a bare .md agent`,
+      );
     }
   });
 

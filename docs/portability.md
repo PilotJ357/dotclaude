@@ -1,49 +1,46 @@
 # Portability
 
-What loads where, and what follows from it.
+The single place in this repo where runtime compatibility is stated. Every claim here carries a source. Nothing in `AGENTS.md`, a skill, or a subagent should assert what a runtime supports — put it here instead, so there is one file to correct when it turns out to be wrong.
 
 ## Support matrix
 
-| Primitive | Claude Code | GitHub Copilot |
-|---|---|---|
-| Agent skills | `.claude/skills/<name>/SKILL.md` | `.github/skills/`, `.claude/skills/`, `.agents/skills/` |
-| Instructions | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md` (CLI only); `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` (VS Code, github.com) |
-| Subagents | `.claude/agents/*.md`, `~/.claude/agents/*.md` | `.github/agents/*.md`, org/enterprise `/agents/`, `~/.copilot/agents/*.agent.md` |
-| Slash commands / prompts | `.claude/commands/*.md` | `.github/prompts/*.prompt.md` — VS Code and Visual Studio only |
-| Hooks | `.claude/settings.json`, `~/.claude/settings.json` | `.claude/settings.json` (cross-tool), `.github/hooks/*.json`, `.github/copilot/settings.json`, `~/.copilot/hooks/` |
-| MCP servers | `.mcp.json` | `.mcp.json`, `.vscode/mcp.json` |
+| Primitive | Claude Code | Copilot CLI | Copilot in VS Code |
+|---|---|---|---|
+| **Agent skills** | `.claude/skills/<name>/SKILL.md`, `~/.claude/skills/` | `.github/skills/`, **`.claude/skills/`**, `.agents/skills/`; `~/.copilot/skills/`, `~/.agents/skills/` | same as CLI |
+| **Hooks** | `.claude/settings.json`, `~/.claude/settings.json` | **`.claude/settings.json`**, `.claude/settings.local.json`, `.github/hooks/*.json`, `.github/copilot/settings.json`, `~/.copilot/hooks/` | `.github/hooks/*.json`, **`.claude/settings.json`**, `~/.claude/settings.json`, `~/.copilot/hooks/` |
+| **Subagents** | `.claude/agents/*.md`, `~/.claude/agents/` | `.github/agents/*.agent.md`, `~/.copilot/agents/*.agent.md`, org and enterprise `/agents/` | `.github/agents/` (any `.md`), **`.claude/agents/`**, `~/.copilot/agents/` |
+| **Spawning subagents** | Yes | Yes — `/agent`, automatic delegation, `/fleet` for parallel execution, concurrency and depth limits in `/settings` | Yes |
+| **Instructions** | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `.github/copilot-instructions.md` | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` |
+| **Prompt files** | `.claude/commands/*.md` | Marked unsupported in the cheat sheet | `.github/prompts/*.prompt.md` |
+| **MCP servers** | `.mcp.json` | `.mcp.json` | `.mcp.json`, `.vscode/mcp.json` |
 
-Personal-scope skills: `~/.claude/skills/` for Claude Code, `~/.copilot/skills/` or `~/.agents/skills/` for Copilot.
+Bold marks a path both tool families read natively.
 
-Both runtimes also have a personal-scope agents directory, and for Copilot CLI a personal agent takes precedence over a repository agent of the same name. GitHub's documentation is inconsistent about the extension: the [CLI agent-creation page](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli) specifies `.agent.md`, while the customization cheat sheet and GitHub's own `awesome-copilot` repository use plain `.md` under `.github/agents/`. `scripts/install.mjs` writes `.agent.md` to the personal directory and `scripts/sync.mjs` writes `.md` under `.github/agents/`, matching each source.
+Sources: [customization cheat sheet](https://docs.github.com/en/copilot/reference/customization-cheat-sheet) · [agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) · [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) · [create custom agents for CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli) · [invoke custom agents](https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/invoke-custom-agents) · [VS Code custom agents](https://code.visualstudio.com/docs/agent-customization/custom-agents) · [VS Code hooks](https://code.visualstudio.com/docs/agent-customization/hooks) · [Copilot CLI custom instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions)
 
-Sources: [customization cheat sheet](https://docs.github.com/en/copilot/reference/customization-cheat-sheet), [about agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills), [Copilot CLI custom agents](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-custom-agents), [Copilot CLI custom instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions).
+## Three shared surfaces
 
-## Consequences
+**`.claude/skills/`** — Copilot reads three skill directories, Claude Code reads one. This is the intersection, so it is canonical and skills are the preferred unit of authorship.
 
-**`.claude/skills/` is canonical.** Copilot reads three skill directories, Claude Code reads one. `.claude/skills/` is the only path both load without a build step. A vendor-neutral `src/` or `.agents/skills/` would be worse — Claude Code would load nothing from it.
+**`.claude/settings.json`** — the hooks reference states Copilot reads "cross-tool `.claude/settings.json` and `.claude/settings.local.json` files in the repository". VS Code parses the same format, converting Copilot's lowerCamelCase event names to PascalCase.
 
-**Skills are the unit of authorship.** They port for free at repository scope; subagents and prompt files do not — a subagent must be duplicated into `.github/agents/`, and a prompt file exists only for Copilot. `.github/prompts/` also only helps VS Code and Visual Studio users; the cheat sheet marks Copilot CLI as unsupported for prompt files. CLI users reach a skill through description matching or by naming it.
+**`.claude/agents/`** — VS Code documents that it "also detects `.md` files in the `.claude/agents` folder, following the Claude sub-agents format. This enables you to use the same agent definitions across VS Code and Claude Code." Copilot CLI does not list `.claude/agents/` among its sources, so the generated `.github/agents/` stub exists for the CLI and for github.com.
 
-**`.claude/commands/` is unused.** Claude Code exposes skills as `/<name>` already, so a command file would duplicate a skill with no consumer of its own. Copilot never reads that directory; the [feature request](https://github.com/github/copilot-cli/issues/302) was closed unimplemented.
+## Details that bite
 
-## Hooks
+**Hooks.** Use the `command` field, not `bash` or `powershell` — those are Copilot and VS Code extensions. Use PascalCase event names (`SessionStart`, `PreToolUse`, `Stop`); Copilot CLI's native form is lowerCamelCase but it accepts PascalCase from Claude-format files. Copilot exposes events with no Claude Code equivalent: `errorOccurred`, `notification`, `permissionRequest`, `preCompact`, `userPromptTransformed`, `subagentStart`, `postToolUseFailure`. Copilot loads hooks from policy, then user, then project, then plugins, and runs all matching hooks; policy hooks cannot be disabled by `disableAllHooks`.
 
-`.claude/settings.json` is the second natively shared surface after `.claude/skills/`. GitHub's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) states Copilot reads "cross-tool `.claude/settings.json` and `.claude/settings.local.json` files in the repository", and [VS Code](https://code.visualstudio.com/docs/agent-customization/hooks) parses the same format, converting Copilot's lowerCamelCase event names to PascalCase.
+**Subagent file extension.** GitHub's own documentation disagrees. The [CLI agent-creation page](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli) states "Each custom agent is defined by a Markdown file with an `.agent.md` extension", while the customization cheat sheet writes `.github/agents/AGENT-NAME.md`. VS Code documents `.agent.md` but "detects any `.md` files in the `.github/agents` folder". `.agent.md` satisfies every source, so `scripts/sync.mjs` generates that.
 
-Portability rules:
+**Subagent precedence.** For Copilot CLI, a personal agent in `~/.copilot/agents/` wins over a repository agent of the same name.
 
-| Concern | Portable choice |
-|---|---|
-| Command field | `command`. `bash` and `powershell` are Copilot and VS Code extensions. |
-| Event names | PascalCase — `SessionStart`, `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionEnd`. Copilot's native form is lowerCamelCase but it accepts PascalCase from Claude-format files. |
-| Copilot-only events | `errorOccurred`, `notification`, `permissionRequest`, `preCompact`, `userPromptTransformed`, `subagentStart`, `postToolUseFailure` have no Claude Code equivalent. |
+**Frontmatter schemas differ.** Claude Code uses `tools` and `model`; Copilot uses `prompt`, `tools` and `mcp-servers`. Only `name` and `description` carry over, which is all `sync.mjs` and `install.mjs` copy.
 
-Copilot loads hooks from policy, then user, then project, then plugins, and combines them; all matching hooks for an event run. Policy hooks cannot be disabled by `disableAllHooks`.
+**Prompt files** only reach VS Code and Visual Studio users. CLI users reach a skill by description matching or by naming it.
+
+**`.claude/commands/` is unused here.** Claude Code exposes skills as `/<name>` already, so a command file would duplicate a skill with no consumer of its own. Copilot does not read that directory; the [feature request](https://github.com/github/copilot-cli/issues/302) was closed unimplemented.
 
 ## Bridging approach
-
-Three options for getting content from `.claude/` to `.github/`:
 
 | Approach | Verdict |
 |---|---|
@@ -58,9 +55,11 @@ Stubs contain only `name`/`description` frontmatter and a pointer line, so there
 | Path | Source | Form |
 |---|---|---|
 | `.github/prompts/<name>.prompt.md` | `.claude/skills/<name>/SKILL.md` | Stub |
-| `.github/agents/<name>.md` | `.claude/agents/<name>.md` | Stub, `name` + `description` only |
+| `.github/agents/<name>.agent.md` | `.claude/agents/<name>.md` | Stub, `name` + `description` only |
 | `.github/copilot-instructions.md` | `AGENTS.md` | Full copy, relative links reparented |
 
-The instructions file is a copy rather than a pointer because Copilot in VS Code reads it directly and will not follow a reference out of it. Agent stubs carry only two fields because the schemas differ: Claude Code uses `tools` and `model`, Copilot uses `prompt`, `tools` and `mcp-servers`.
+The instructions file is a copy rather than a pointer because Copilot in VS Code reads it directly and will not follow a reference out of it.
+
+`scripts/install.mjs` writes the full body rather than a stub when installing to a home directory, since `.claude/agents/...` does not resolve from `~`.
 
 Regenerate with `npm run sync`; verify with `npm run sync:check`.

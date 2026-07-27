@@ -9,14 +9,12 @@ Copilot loads agent skills from `.github/skills/`, `.claude/skills/` or `.agents
 | Primitive | Claude Code | GitHub Copilot | Shared |
 |---|---|---|---|
 | Agent skills | `.claude/skills/` | `.github/skills/`, `.claude/skills/`, `.agents/skills/` | Yes, natively |
+| Hooks | `.claude/settings.json` | `.claude/settings.json`, `.github/hooks/*.json`, `~/.copilot/hooks/` | Yes, natively |
+| Subagents | `.claude/agents/` | `.claude/agents/` in VS Code; `.github/agents/*.agent.md` and `~/.copilot/agents/` for the CLI | VS Code only |
 | Instructions | `CLAUDE.md` | `AGENTS.md` + `CLAUDE.md` (CLI); `.github/copilot-instructions.md` (VS Code) | Partial |
-| Subagents | `.claude/agents/` | `.github/agents/` | No |
-| Slash commands | `.claude/commands/` | `.github/prompts/` (VS Code/VS only, not CLI) | No |
-| Hooks | `.claude/settings.json` | `.claude/settings.json` (cross-tool), `.github/hooks/*.json`, `~/.copilot/hooks/` | Yes, natively |
+| Prompt files | `.claude/commands/` | `.github/prompts/` (VS Code and Visual Studio, not the CLI) | No |
 
-Hooks share the same property: `.claude/settings.json` is read by Claude Code, Copilot CLI and VS Code alike.
-
-Skills are therefore the unit of authorship. The two primitives that don't port get generated pointer stubs in `.github/` — `name`, `description` and a reference back to the canonical file. Stubs hold no substance, so they cannot semantically drift; CI fails if they go stale.
+Three surfaces are read natively by both tool families: skills, hooks, and — in VS Code — subagents. What doesn't reach a runtime gets a generated pointer stub in `.github/` carrying `name`, `description` and a reference back to the canonical file. Stubs hold no substance, so they cannot semantically drift; CI fails if they go stale.
 
 Sources and the reasoning behind rejecting symlinks and CI copy jobs: [docs/portability.md](docs/portability.md).
 

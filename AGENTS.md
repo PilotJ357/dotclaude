@@ -8,23 +8,21 @@ Portable AI agent configuration — skills, subagents and hooks authored once an
 
 After editing `.claude/` or this file, run `npm run sync`. CI verifies freshness and fails on drift; it does not regenerate.
 
-## Layout rationale
+## Compatibility claims belong in one file
 
-Copilot loads skills from `.github/skills`, `.claude/skills` or `.agents/skills`. Claude Code loads them only from `.claude/skills`. That directory is the intersection, so it is canonical and skills are the preferred unit of authorship.
+**Do not state what a runtime does or does not support in this file, in a skill, or in a subagent.** Every such claim lives in [docs/portability.md](docs/portability.md), next to a link to the documentation it came from.
 
-Hooks are also shared: Claude Code, Copilot CLI and VS Code all read `.claude/settings.json`. Use the `command` field and PascalCase event names to stay portable.
+This file is loaded as instructions on every turn. A wrong claim here does not sit inert — it gets read back as authority, repeated into new prose, and passed to subagents as premise. That has already happened four times in this repo: hooks, user-scope agent directories, subagent spawning, and `.claude/agents` support. Each was written here from an inference, then echoed until someone checked.
 
-Subagents and slash commands have no such overlap at repository scope. Copilot reads subagents from `.github/agents/` rather than `.claude/agents/`, and prompt files only from `.github/prompts/` (VS Code and Visual Studio; the customization cheat sheet marks Copilot CLI as unsupported for prompt files). Those directories hold generated pointer stubs.
+When you need a compatibility fact, read `docs/portability.md`. When you learn a new one, put it there with its source.
 
-At user scope both runtimes do have an agents directory — `~/.claude/agents/` and `~/.copilot/agents/` — which is why `scripts/install.mjs` writes to both.
-
-Full matrix: [docs/portability.md](docs/portability.md).
+Negative claims — "X cannot", "X has no", "X only supports" — need a source that positively says so: an explicit support matrix, a closed-as-wontfix issue, or an empirical test. A documentation page that simply does not mention a feature is not evidence the feature is absent.
 
 ## Authoring rules
 
-- Prefer a skill. Skills port; subagents and commands do not.
+- Prefer a skill. Skills are the primitive with the widest native support.
 - Skills live at `.claude/skills/<name>/SKILL.md` and follow the [Agent Skills specification](https://agentskills.io/specification). `name` must equal the directory name, be kebab-case, ≤64 characters. `description` is required, ≤1024 characters, and must state what the skill does and when to use it. No angle brackets in frontmatter — they can inject into the system prompt.
-- Skill bodies must work in both runtimes. Claude Code can spawn parallel subagents; Copilot CLI cannot. State what to do in each case.
+- Skill bodies must work in every runtime. Where a capability may be absent, branch on it — "if your runtime supports X, do this, otherwise do that" — rather than naming a tool you believe lacks it.
 - Do not create `.claude/commands/`. Claude Code exposes skills as `/<name>` already.
 
 Detail: [docs/authoring.md](docs/authoring.md).
@@ -37,7 +35,7 @@ This repo distributes content that executes on other machines.
 - No dependency version published within the last 3 days may be installed. `npm run check:deps` enforces it; Dependabot `cooldown` waits out the same window.
 - `.npmrc` sets `ignore-scripts=true`. Use `npm ci`, never `npm install`.
 - Actions are pinned to 40-character SHAs. Workflows have no write permissions and reference no secrets.
-- Hooks run automatically on contributors' machines, in all three runtimes. Changes to `.claude/hooks/` or the `hooks` block in `.claude/settings.json` are privileged, gated by `tests/hygiene.test.mjs` plus `CODEOWNERS`.
+- Hooks run automatically on contributors' machines. Changes to `.claude/hooks/` or the `hooks` block in `.claude/settings.json` are privileged, gated by `tests/hygiene.test.mjs` plus `CODEOWNERS`.
 
 Threat model: [docs/security.md](docs/security.md).
 

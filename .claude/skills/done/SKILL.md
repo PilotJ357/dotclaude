@@ -29,7 +29,7 @@ No changes against the base: say so and stop.
 
 ## Step 2 — Run both audits
 
-**If your runtime supports parallel subagents, spawn both concurrently** — in Claude Code, the `docs-auditor` and `test-auditor` subagents. **Otherwise perform both inline, in sequence.** Same criteria either way. Give each the change set from Step 1.
+**If `docs-auditor` and `test-auditor` are available to you as subagents, spawn both concurrently. Otherwise perform both inline, in sequence.** Same criteria either way — the audits below are the definition, not a summary of the subagents. Give each the change set from Step 1.
 
 ### Documentation audit
 

@@ -128,8 +128,12 @@ async function buildOutputs() {
       description: agent.data.description ?? '',
     });
 
+    // `.agent.md`, not `.md`: Copilot CLI documents "Each custom agent is
+    // defined by a Markdown file with an `.agent.md` extension", and VS Code
+    // detects any `.md` file in `.github/agents`, so this satisfies both.
+    // The customization cheat sheet's `AGENT-NAME.md` shorthand does not.
     outputs.set(
-      path.join(GH_AGENTS_DIR, `${agent.name}.md`),
+      path.join(GH_AGENTS_DIR, `${agent.name}.agent.md`),
       `${generatedHeader(source)}${frontmatter}\n` +
         `Read \`${source}\` and follow it exactly. That file is the canonical ` +
         `definition of this agent.\n`,
