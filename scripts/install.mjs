@@ -14,7 +14,7 @@ import { readdir, mkdir, copyFile, rm, symlink, readFile } from 'node:fs/promise
 import { homedir } from 'node:os';
 import path from 'node:path';
 
-import { SKILLS_DIR, HOOKS_DIR, REPO_ROOT, rel } from './lib/paths.mjs';
+import { SKILLS_DIR, AGENTS_DIR, HOOKS_DIR, rel } from './lib/paths.mjs';
 import {
   resolveWithin,
   isSafeSkillName,
@@ -34,6 +34,7 @@ Usage: node scripts/install.mjs [options]
   --dry-run        Print exactly what would be written, change nothing
   --link           Symlink instead of copy (needs Developer Mode on Windows)
   --force          Overwrite skills that are already installed
+  --no-agents      Skip subagents (they go to ~/.claude/agents, Claude Code only)
   --with-hooks     Also install .claude/hooks/ — these EXECUTE on your machine
   --claude-only    Install to ~/.claude only
   --copilot-only   Install to ~/.copilot only
@@ -42,7 +43,7 @@ Usage: node scripts/install.mjs [options]
 
 function parseArgs(argv) {
   const known = new Set([
-    '--dry-run', '--link', '--force', '--with-hooks',
+    '--dry-run', '--link', '--force', '--with-hooks', '--no-agents',
     '--claude-only', '--copilot-only', '-h', '--help',
   ]);
 
@@ -72,6 +73,9 @@ function parseArgs(argv) {
     link: has('--link'),
     force: has('--force'),
     withHooks: has('--with-hooks'),
+    // Copilot reads subagents from .github/agents/ in a repository only — it
+    // has no user-scope agents directory — so these go to ~/.claude/ alone.
+    agents: !has('--no-agents') && targets.includes(TARGETS.claude),
     targets,
   };
 }
@@ -98,6 +102,20 @@ async function listSkills() {
   }
 
   return skills.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Subagent definitions. The `done` skill spawns `docs-auditor` and
+ * `test-auditor` by name, so installing skills without these leaves the skill
+ * silently falling back to its inline path.
+ */
+async function listAgents() {
+  const entries = await readdir(AGENTS_DIR, { withFileTypes: true });
+
+  return entries
+    .filter((e) => e.isFile() && e.name.endsWith('.md') && e.name !== 'README.md')
+    .map((e) => e.name)
+    .sort();
 }
 
 /** Build every write this run would perform, with each target verified in-bounds. */
@@ -223,6 +241,19 @@ async function main() {
   console.log(`\nTargets: ${options.targets.map(display).join(', ')}\n`);
 
   const actions = await buildPlan(skills, options);
+
+  if (options.agents) {
+    const agentsRoot = path.join(TARGETS.claude, 'agents');
+    for (const fileName of await listAgents()) {
+      actions.push({
+        kind: 'copy',
+        source: path.join(AGENTS_DIR, fileName),
+        destination: resolveWithin(agentsRoot, fileName),
+        replace: true,
+      });
+    }
+  }
+
   if (options.withHooks) actions.push(...(await warnAboutHooks(options)));
 
   for (const action of actions) {

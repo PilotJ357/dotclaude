@@ -57,13 +57,16 @@ node scripts/install.mjs --dry-run
 node scripts/install.mjs
 ```
 
-Copies `.claude/skills/*` into `~/.claude/skills/` and `~/.copilot/skills/`, making each skill available globally to both tools.
+Copies `.claude/skills/*` into `~/.claude/skills/` and `~/.copilot/skills/`, and `.claude/agents/*` into `~/.claude/agents/`, making each skill available globally to both tools.
+
+Subagents go to `~/.claude/` only — Copilot reads subagents from `.github/agents/` in a repository and has no user-scope equivalent. They install by default because the `done` skill spawns them by name.
 
 | Flag | Effect |
 |---|---|
 | `--dry-run` | Print the plan, write nothing |
 | `--link` | Symlink instead of copy (needs Developer Mode on Windows) |
 | `--force` | Overwrite installed skills |
+| `--no-agents` | Skip subagents |
 | `--with-hooks` | Also install `.claude/hooks/` — executes on your machine |
 | `--claude-only`, `--copilot-only` | Restrict targets |
 

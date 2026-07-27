@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, symlink, rm, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -10,6 +10,7 @@ import {
   collectSkillFiles,
   ALLOWED_EXTENSIONS,
 } from '../scripts/lib/install-plan.mjs';
+import { REPO_ROOT } from '../scripts/lib/paths.mjs';
 
 /**
  * The installer writes into the user's home directory, so its guards get
@@ -73,6 +74,61 @@ describe('isSafeSkillName', () => {
   test('rejects names over 64 characters', () => {
     assert.equal(isSafeSkillName('a'.repeat(65)), false);
     assert.ok(isSafeSkillName('a'.repeat(64)));
+  });
+});
+
+describe('installer covers what the done skill depends on', () => {
+  test('every subagent the done skill names is installable', async () => {
+    // The skill spawns these by name. Installing skills without them leaves it
+    // silently falling back to the inline path on a globally installed setup.
+    const skill = await readFile(
+      path.join(REPO_ROOT, '.claude/skills/done/SKILL.md'),
+      'utf8',
+    );
+    const named = [...skill.matchAll(/`([a-z]+-auditor)`/g)].map((m) => m[1]);
+    assert.ok(named.length > 0, 'expected the done skill to name subagents');
+
+    const installed = (await readdir(path.join(REPO_ROOT, '.claude/agents')))
+      .filter((f) => f.endsWith('.md') && f !== 'README.md')
+      .map((f) => f.replace(/\.md$/, ''));
+
+    for (const agent of new Set(named)) {
+      assert.ok(
+        installed.includes(agent),
+        `done names "${agent}" but .claude/agents/${agent}.md does not exist`,
+      );
+    }
+  });
+});
+
+describe('agent instructions stay accurate', () => {
+  test('test-auditor names the real test command', async () => {
+    // A hardcoded inventory in an agent file drifts silently. This one already
+    // did: it listed five test files when there were seven.
+    const [agent, pkg] = await Promise.all([
+      readFile(path.join(REPO_ROOT, '.claude/agents/test-auditor.md'), 'utf8'),
+      readFile(path.join(REPO_ROOT, 'package.json'), 'utf8'),
+    ]);
+
+    const command = JSON.parse(pkg).scripts.test.replace(/\\"/g, '"');
+    assert.ok(
+      agent.includes(command),
+      `test-auditor should reference the actual test command: ${command}`,
+    );
+  });
+
+  test('no agent file hardcodes a test-file inventory', async () => {
+    const dir = path.join(REPO_ROOT, '.claude/agents');
+    for (const name of await readdir(dir)) {
+      if (!name.endsWith('.md') || name === 'README.md') continue;
+      const content = await readFile(path.join(dir, name), 'utf8');
+      const listed = [...content.matchAll(/tests\/[a-z-]+\.test\.mjs/g)];
+      assert.deepEqual(
+        listed.map((m) => m[0]),
+        [],
+        `${name} hardcodes test filenames, which go stale — tell the agent to list tests/ instead`,
+      );
+    }
   });
 });
 
