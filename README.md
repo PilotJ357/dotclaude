@@ -87,7 +87,7 @@ npm run validate      # sync freshness + tests + audit
 
 ## Security
 
-Two-package dependency tree. `node:test` instead of a test framework. `.npmrc` sets `ignore-scripts=true`. Actions pinned to full commit SHAs, restricted to GitHub-owned. CI has read-only token permissions and references no secrets. The installer copies data files only and refuses writes outside the two target roots.
+Two-package dependency tree. `node:test` instead of a test framework. `.npmrc` sets `ignore-scripts=true`. No dependency version may be installed within 3 days of publication, enforced against the lockfile and mirrored by Dependabot cooldown. Actions pinned to full commit SHAs and restricted to GitHub-owned. CI has read-only token permissions and references no secrets. The installer copies data files only and refuses writes outside the two target roots.
 
 [docs/security.md](docs/security.md) · [SECURITY.md](SECURITY.md)
 

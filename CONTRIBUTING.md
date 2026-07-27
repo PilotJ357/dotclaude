@@ -29,7 +29,8 @@ CI verifies freshness and fails on drift. It does not regenerate.
 | `npm run sync` | Regenerate `.github/` |
 | `npm run sync:check` | Fail if `.github/` is stale |
 | `npm test` | Run the validation suite |
-| `npm run validate` | `sync:check` + tests + `npm audit` |
+| `npm run check:deps` | Fail if any dependency was published in the last 3 days |
+| `npm run validate` | `sync:check` + tests + `npm audit` + `check:deps` |
 
 `/done` runs all of it plus a docs and coverage audit, then opens the PR.
 
@@ -46,6 +47,8 @@ Do not add `.claude/commands/`. Claude Code exposes skills as `/<name>` already,
 ## Dependencies
 
 `npm ls --all` should show `js-yaml` and `argparse`, nothing else. Adding a dependency requires a PR justification explaining why the standard library and existing dependency cannot cover it. `node:test` is built in — do not add a test framework.
+
+No version published within the last 3 days may be installed. Dependabot waits out the same window before proposing one, and `npm run check:deps` enforces it against the lockfile. If you hit it, wait or pin to an older version; `ALLOW_FRESH_DEPS='name@version'` exists for security patches that cannot wait. Rationale: [docs/security.md](docs/security.md).
 
 ## What CI enforces
 

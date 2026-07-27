@@ -23,6 +23,31 @@ Budget is two packages. `npm ls --all` should show `js-yaml` and its child `argp
 | `node:test` instead of a framework | Vitest pulls esbuild, rollup and vite — over a hundred packages plus platform binaries fetched at install — to validate a handful of markdown files. |
 | No frontmatter library | `gray-matter` pulls `section-matter`, `strip-bom-string` and `kind-of`. Splitting frontmatter is a regex; parsing is `js-yaml`. |
 
+### Minimum release age
+
+No dependency version may be installed within **3 days** of publication.
+
+Compromised packages — a hijacked maintainer account, a malicious postinstall, a typosquat — are normally detected and unpublished within hours to days. Almost all of the damage happens in that first window, to whoever installed automatically. Waiting removes the repo from that population without requiring anyone to spot the compromise.
+
+Two layers:
+
+| Layer | Role |
+|---|---|
+| `cooldown` in `dependabot.yml` | Stops Dependabot *proposing* a version before it has aged: 3 days for patches, 7 for minors, 14 for majors, 7 for Actions. |
+| `scripts/check-dep-age.mjs` | Enforces the floor against `package-lock.json` by querying each version's registry publish time. Catches anything a manual `npm install` introduced, which cooldown cannot see. |
+
+Run locally with `npm run check:deps`; part of `npm run validate`. CI runs it with `--strict`, so an unreachable registry fails the build rather than passing silently. Locally it warns and continues, keeping the suite usable offline.
+
+The threshold is `--min-age-days=N` or `MIN_DEP_AGE_DAYS`. For a security patch that genuinely cannot wait, `ALLOW_FRESH_DEPS` takes exact `name@version` pairs:
+
+```bash
+ALLOW_FRESH_DEPS='js-yaml@4.3.1' npm run check:deps
+```
+
+Exceptions must name a version. A bare package name is ignored, since it would exempt that dependency at every future version and quietly disable the gate.
+
+This does not defend against a compromise that stays undetected past the window, and it delays legitimate security patches by up to 3 days — `npm audit` and Dependabot security updates, which are exempt from cooldown, cover that direction.
+
 ### npm settings
 
 | `.npmrc` setting | Reason |

@@ -30,6 +30,7 @@ Detail: [docs/authoring.md](docs/authoring.md).
 This repo distributes content that executes on other machines.
 
 - Dependency budget is two packages: `js-yaml` and its child `argparse`. Tests use `node:test`. Additions need PR justification.
+- No dependency version published within the last 3 days may be installed. `npm run check:deps` enforces it; Dependabot `cooldown` waits out the same window.
 - `.npmrc` sets `ignore-scripts=true`. Use `npm ci`, never `npm install`.
 - Actions are pinned to 40-character SHAs. Workflows have no write permissions and reference no secrets.
 - `.claude/hooks/` runs automatically on contributors' machines. Changes there are privileged and gated by `tests/hygiene.test.mjs` plus `CODEOWNERS`.

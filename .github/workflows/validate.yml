@@ -64,6 +64,12 @@ jobs:
       - name: Audit dependencies
         run: npm run audit
 
+      # Refuses any dependency version published within the last 3 days.
+      # --strict makes an unreachable registry an error rather than a warning,
+      # so this cannot pass by failing open in CI.
+      - name: Verify dependency minimum age
+        run: node scripts/check-dep-age.mjs --strict
+
       # A ref is acceptable only if it is exactly 40 hex characters. Matching
       # on "looks like a tag" is not enough — a commit SHA can begin with a
       # digit, so a naive pattern flags the correct thing.

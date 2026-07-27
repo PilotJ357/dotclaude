@@ -13,7 +13,8 @@
     "sync:check": "node scripts/sync.mjs --check",
     "test": "node --test \"tests/*.test.mjs\"",
     "audit": "npm audit --audit-level=high",
-    "validate": "npm run sync:check && npm test && npm run audit",
+    "check:deps": "node scripts/check-dep-age.mjs",
+    "validate": "npm run sync:check && npm test && npm run audit && npm run check:deps",
     "install:skills": "node scripts/install.mjs"
   },
   "dependencies": {
