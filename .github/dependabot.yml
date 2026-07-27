@@ -12,6 +12,13 @@ updates:
       prefix: "deps"
     labels:
       - dependencies
+    ignore:
+      # js-yaml 5.x removed the default export, so it is a code change rather
+      # than a version bump. The 4.x line is still maintained — 4.3.0 shipped
+      # after 5.0.0 — so security fixes continue to arrive through patches,
+      # which are not ignored here. Revisit deliberately once 5.x has settled.
+      - dependency-name: js-yaml
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /

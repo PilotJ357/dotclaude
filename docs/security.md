@@ -19,6 +19,7 @@ Budget is two packages. `npm ls --all` should show `js-yaml` and its child `argp
 | Choice | Reason |
 |---|---|
 | `js-yaml@4` as the only direct dependency | v4 dropped `esprima`; its one child `argparse@2` is a pure-JavaScript rewrite with no dependencies and no install scripts. Parses with the default safe schema — `yaml.load` will not construct arbitrary types. Do not substitute a custom schema. |
+| Pinned to the 4.x line | 5.x removed the default export, making it a code change rather than a bump, and offers no dependency or size reduction. The 4.x line is still maintained — 4.3.0 shipped after 5.0.0 — so patches continue to arrive. `dependabot.yml` ignores the major only; minor and patch updates still open PRs. |
 | `node:test` instead of a framework | Vitest pulls esbuild, rollup and vite — over a hundred packages plus platform binaries fetched at install — to validate a handful of markdown files. |
 | No frontmatter library | `gray-matter` pulls `section-matter`, `strip-bom-string` and `kind-of`. Splitting frontmatter is a regex; parsing is `js-yaml`. |
 
