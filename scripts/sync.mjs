@@ -68,8 +68,8 @@ async function loadSkills() {
     const source = await readIfExists(file);
     if (source === null) continue;
 
-    const { data } = parseFrontmatter(source);
-    skills.push({ name: entry.name, file, data });
+    const { data, body } = parseFrontmatter(source);
+    skills.push({ name: entry.name, file, data, body });
   }
 
   return skills.sort((a, b) => a.name.localeCompare(b.name));
@@ -85,8 +85,8 @@ async function loadAgents() {
     if (entry.name === 'README.md') continue;
 
     const file = path.join(AGENTS_DIR, entry.name);
-    const { data } = parseFrontmatter(await readFile(file, 'utf8'));
-    agents.push({ name: entry.name.replace(/\.md$/, ''), file, data });
+    const { data, body } = parseFrontmatter(await readFile(file, 'utf8'));
+    agents.push({ name: entry.name.replace(/\.md$/, ''), file, data, body });
   }
 
   return agents.sort((a, b) => a.name.localeCompare(b.name));
@@ -95,31 +95,57 @@ async function loadAgents() {
 /**
  * Build the full generated tree as a Map of absolute path -> content.
  *
- * Stubs deliberately carry no substance beyond `name`/`description` — they
- * point at the canonical file rather than copying it, so the two cannot
- * semantically diverge. Only staleness is possible, and `--check` catches that.
+ * Generated files carry the **full body**, not a pointer back to `.claude/`.
+ * A pointer is indirection that can fail — it costs the runtime an extra file
+ * read and breaks anywhere the relative path does not resolve. Because these
+ * files are generated and `--check` fails the build when they are stale, a
+ * full copy cannot drift either. Only the frontmatter is rewritten, since the
+ * schemas genuinely differ between runtimes.
  */
 async function buildOutputs() {
   const outputs = new Map();
+  const skills = await loadSkills();
+  const agents = await loadAgents();
 
-  for (const skill of await loadSkills()) {
+  const agentNames = new Set(agents.map((agent) => agent.name));
+  for (const skill of skills) {
+    if (agentNames.has(skill.name)) {
+      throw new Error(
+        `name collision: a skill and a subagent are both called "${skill.name}". ` +
+          'Each skill is also emitted as a Copilot agent, so the names must be distinct.',
+      );
+    }
+  }
+
+  for (const skill of skills) {
     const source = rel(skill.file);
-    const frontmatter = stringifyFrontmatter({
-      description: skill.data.description ?? '',
-      agent: 'agent',
-    });
 
+    // VS Code prompt-file fields. `agent: agent` runs it in agent mode.
     outputs.set(
       path.join(GH_PROMPTS_DIR, `${skill.name}.prompt.md`),
-      `${generatedHeader(source)}${frontmatter}\n` +
-        `Read \`${source}\` and follow it exactly.\n\n` +
-        `That file is the canonical definition of this workflow. This prompt ` +
-        `exists only so the skill is reachable as \`/${skill.name}\` in ` +
-        `Copilot for VS Code, which does not load skills as slash commands.\n`,
+      generatedHeader(source) +
+        stringifyFrontmatter({
+          description: skill.data.description ?? '',
+          agent: 'agent',
+        }) +
+        `\n${skill.body.trimStart()}`,
+    );
+
+    // Copilot CLI has no prompt-file support, but it does have `/agent NAME`.
+    // Emitting each skill as an agent too is what makes it explicitly
+    // invocable there rather than only reachable by description matching.
+    outputs.set(
+      path.join(GH_AGENTS_DIR, `${skill.name}.agent.md`),
+      generatedHeader(source) +
+        stringifyFrontmatter({
+          name: skill.name,
+          description: skill.data.description ?? '',
+        }) +
+        `\n${skill.body.trimStart()}`,
     );
   }
 
-  for (const agent of await loadAgents()) {
+  for (const agent of agents) {
     const source = rel(agent.file);
     // Only name/description carry over: Claude Code uses `tools`/`model`,
     // Copilot uses `prompt`/`tools`/`mcp-servers`. The schemas do not map.
@@ -134,9 +160,7 @@ async function buildOutputs() {
     // The customization cheat sheet's `AGENT-NAME.md` shorthand does not.
     outputs.set(
       path.join(GH_AGENTS_DIR, `${agent.name}.agent.md`),
-      `${generatedHeader(source)}${frontmatter}\n` +
-        `Read \`${source}\` and follow it exactly. That file is the canonical ` +
-        `definition of this agent.\n`,
+      `${generatedHeader(source)}${frontmatter}\n${agent.body.trimStart()}`,
     );
   }
 
@@ -221,4 +245,11 @@ async function main() {
   console.log(`sync: ${drift.length} file(s) updated`);
 }
 
-await main();
+try {
+  await main();
+} catch (error) {
+  // Configuration problems (name collisions, unparseable frontmatter) are
+  // user errors, not crashes. Report them without a stack trace.
+  console.error(`sync: ${error.message}`);
+  process.exitCode = 1;
+}

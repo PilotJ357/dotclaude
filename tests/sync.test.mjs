@@ -14,6 +14,7 @@ import {
   AGENTS_DIR,
   GENERATED_MARKER,
 } from '../scripts/lib/paths.mjs';
+import { parseFrontmatter } from '../scripts/lib/frontmatter.mjs';
 
 const run = promisify(execFile);
 
@@ -93,21 +94,108 @@ describe('generated tree', () => {
     }
   });
 
-  test('stubs point at their canonical source and carry no substance', async () => {
+  test('generated files carry the full body, not a pointer', async () => {
+    // A pointer costs an extra file read and breaks wherever the relative
+    // path does not resolve. These are generated and freshness-checked, so a
+    // full copy cannot drift.
     for (const dir of [GH_PROMPTS_DIR, GH_AGENTS_DIR]) {
       for (const name of await readdir(dir)) {
         const content = await readFile(path.join(dir, name), 'utf8');
-        assert.match(
+        assert.doesNotMatch(
           content,
-          /Read `\.claude\/[^`]+` and follow it exactly\./,
-          `${name} must point at its canonical .claude/ source`,
-        );
-        // A stub that grows real content can drift. Keep them trivial.
-        assert.ok(
-          content.split('\n').length < 20,
-          `${name} is too long to be a pointer stub — content belongs in .claude/`,
+          /Read `\.claude\/[^`]+` and follow it/,
+          `${name} still points at .claude/ instead of carrying the content`,
         );
       }
+    }
+  });
+
+  test('prompt bodies match their skill bodies exactly', async () => {
+    for (const entry of await readdir(SKILLS_DIR, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+
+      const skill = await readFile(
+        path.join(SKILLS_DIR, entry.name, 'SKILL.md'),
+        'utf8',
+      );
+      const generated = await readFile(
+        path.join(GH_PROMPTS_DIR, `${entry.name}.prompt.md`),
+        'utf8',
+      );
+
+      const { body } = parseFrontmatter(skill);
+      const { body: generatedBody } = parseFrontmatter(
+        generated.replace(/^<!--[^\n]*-->\n/, ''),
+      );
+      assert.equal(
+        generatedBody.trim(),
+        body.trim(),
+        `.github/prompts/${entry.name}.prompt.md body diverges from the skill`,
+      );
+    }
+  });
+
+  test('every skill is also emitted as a Copilot agent', async () => {
+    // Copilot CLI has no prompt-file support but does have `/agent NAME`,
+    // so this is what makes a skill explicitly invocable there.
+    const stubs = await readdir(GH_AGENTS_DIR);
+
+    for (const entry of await readdir(SKILLS_DIR, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      assert.ok(
+        stubs.includes(`${entry.name}.agent.md`),
+        `missing .github/agents/${entry.name}.agent.md — skill unreachable via /agent in Copilot CLI`,
+      );
+    }
+  });
+
+  test('skill and subagent names do not collide', async () => {
+    const skills = (await readdir(SKILLS_DIR, { withFileTypes: true }))
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+    const agents = (await readdir(AGENTS_DIR, { withFileTypes: true }))
+      .filter((e) => e.isFile() && e.name.endsWith('.md') && e.name !== 'README.md')
+      .map((e) => e.name.replace(/\.md$/, ''));
+
+    const collisions = skills.filter((name) => agents.includes(name));
+    assert.deepEqual(collisions, [], 'both are emitted into .github/agents/');
+  });
+
+  test('agent bodies match their canonical bodies exactly', async () => {
+    for (const entry of await readdir(AGENTS_DIR, { withFileTypes: true })) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+      if (entry.name === 'README.md') continue;
+
+      const canonical = await readFile(path.join(AGENTS_DIR, entry.name), 'utf8');
+      const generated = await readFile(
+        path.join(GH_AGENTS_DIR, entry.name.replace(/\.md$/, '.agent.md')),
+        'utf8',
+      );
+
+      const { body } = parseFrontmatter(canonical);
+      const { body: generatedBody } = parseFrontmatter(
+        generated.replace(/^<!--[^\n]*-->\n/, ''),
+      );
+      assert.equal(
+        generatedBody.trim(),
+        body.trim(),
+        `.github/agents/${entry.name} body diverges from the canonical file`,
+      );
+    }
+  });
+
+  test('generated frontmatter drops runtime-specific fields', async () => {
+    for (const name of await readdir(GH_AGENTS_DIR)) {
+      const content = await readFile(path.join(GH_AGENTS_DIR, name), 'utf8');
+      const { data } = parseFrontmatter(content.replace(/^<!--[^\n]*-->\n/, ''));
+
+      // Claude Code's `tools`/`model` mean nothing to Copilot, which expects
+      // `prompt`/`tools`/`mcp-servers`. Only the shared fields carry over.
+      assert.deepEqual(
+        Object.keys(data).sort(),
+        ['description', 'name'],
+        `${name} should carry only name and description`,
+      );
     }
   });
 

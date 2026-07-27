@@ -20,7 +20,8 @@ Negative claims — "X cannot", "X has no", "X only supports" — need a source 
 
 ## Authoring rules
 
-- Prefer a skill. Skills are the primitive with the widest native support.
+- Prefer a skill. `sync.mjs` emits every skill in each form a runtime needs, so one skill reaches all of them; a subagent is worth reaching for only when isolated context genuinely helps.
+- Skill and subagent names must be distinct. Both are emitted into the same generated directory, and `sync.mjs` fails with a clear error on collision.
 - Skills live at `.claude/skills/<name>/SKILL.md` and follow the [Agent Skills specification](https://agentskills.io/specification). `name` must equal the directory name, be kebab-case, ≤64 characters. `description` is required, ≤1024 characters, and must state what the skill does and when to use it. No angle brackets in frontmatter — they can inject into the system prompt.
 - Skill bodies must work in every runtime. Where a capability may be absent, branch on it — "if your runtime supports X, do this, otherwise do that" — rather than naming a tool you believe lacks it.
 - Do not create `.claude/commands/`. Claude Code exposes skills as `/<name>` already.

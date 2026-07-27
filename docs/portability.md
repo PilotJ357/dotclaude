@@ -11,7 +11,7 @@ The single place in this repo where runtime compatibility is stated. Every claim
 | **Subagents** | `.claude/agents/*.md`, `~/.claude/agents/` | `.github/agents/*.agent.md`, `~/.copilot/agents/*.agent.md`, org and enterprise `/agents/` | `.github/agents/` (any `.md`), **`.claude/agents/`**, `~/.copilot/agents/` |
 | **Spawning subagents** | Yes | Yes — `/agent`, automatic delegation, `/fleet` for parallel execution, concurrency and depth limits in `/settings` | Yes |
 | **Instructions** | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md`, `.github/copilot-instructions.md` | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` |
-| **Prompt files** | `.claude/commands/*.md` | Marked unsupported in the cheat sheet | `.github/prompts/*.prompt.md` |
+| **Prompt files** | `.claude/commands/*.md` | Marked unsupported in the cheat sheet — `/agent <name>` is the equivalent | `.github/prompts/*.prompt.md` |
 | **MCP servers** | `.mcp.json` | `.mcp.json` | `.mcp.json`, `.vscode/mcp.json` |
 
 Bold marks a path both tool families read natively.
@@ -46,20 +46,21 @@ Sources: [customization cheat sheet](https://docs.github.com/en/copilot/referenc
 |---|---|
 | Symlinks | Rejected. Require Developer Mode or admin rights on Windows. |
 | CI job that copies files | Rejected. Fires only on push, so local checkouts stay stale; produces bot commits that collide with the `/done` PR flow; output is unverifiable before pushing; forces write permissions onto a read-only workflow. |
-| Locally generated stubs, freshness-verified in CI | Chosen. Matches [`github/awesome-copilot`](https://github.com/github/awesome-copilot), whose CI fails if a build would modify a tracked file. |
+| Locally generated files, freshness-verified in CI | Chosen. Matches [`github/awesome-copilot`](https://github.com/github/awesome-copilot), whose CI fails if a build would modify a tracked file. |
 
-Stubs contain only `name`/`description` frontmatter and a pointer line, so there is no substance that can semantically drift. Staleness is the only failure mode, and `npm run sync:check` catches it.
+Generated files carry the **full body**, not a pointer back to `.claude/`. A pointer costs the runtime an extra file read and breaks anywhere the relative path does not resolve. Because these files are generated and `sync:check` fails the build when they are stale, a full copy cannot drift either — only the frontmatter is rewritten, since the schemas genuinely differ.
 
 ## Generated files
 
-| Path | Source | Form |
+| Path | Source | Frontmatter |
 |---|---|---|
-| `.github/prompts/<name>.prompt.md` | `.claude/skills/<name>/SKILL.md` | Stub |
-| `.github/agents/<name>.agent.md` | `.claude/agents/<name>.md` | Stub, `name` + `description` only |
-| `.github/copilot-instructions.md` | `AGENTS.md` | Full copy, relative links reparented |
+| `.github/prompts/<name>.prompt.md` | `.claude/skills/<name>/SKILL.md` | `description`, `agent` |
+| `.github/agents/<name>.agent.md` | `.claude/skills/<name>/SKILL.md` | `name`, `description` |
+| `.github/agents/<name>.agent.md` | `.claude/agents/<name>.md` | `name`, `description` |
+| `.github/copilot-instructions.md` | `AGENTS.md` | none — full copy, relative links reparented |
 
-The instructions file is a copy rather than a pointer because Copilot in VS Code reads it directly and will not follow a reference out of it.
+Each skill is emitted **twice**: as a prompt file, which gives VS Code and Visual Studio users `/<name>`, and as an agent, which gives Copilot CLI users `/agent <name>`. The CLI has no prompt-file support, so without the agent form a skill would only be reachable there by description matching. Because both skills and subagents land in `.github/agents/`, their names must be distinct; `sync.mjs` fails with a clear error on collision.
 
-`scripts/install.mjs` writes the full body rather than a stub when installing to a home directory, since `.claude/agents/...` does not resolve from `~`.
+`scripts/install.mjs` performs the equivalent rewrite for home-directory installs, where `.claude/agents/...` would not resolve.
 
 Regenerate with `npm run sync`; verify with `npm run sync:check`.
