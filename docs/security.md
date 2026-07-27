@@ -108,7 +108,7 @@ Details: [.claude/hooks/README.md](../.claude/hooks/README.md).
 `scripts/install.mjs` runs on other people's machines, so it:
 
 - copies data files only (`.md`, `.txt`, `.json`, `.yaml`, `.yml`) and never executes repository content;
-- writes skills to both target roots and subagents to `~/.claude/agents/` only, since Copilot has no user-scope agents directory;
+- writes skills and subagents to both target roots, rewriting agent frontmatter for Copilot rather than copying Claude-only fields;
 - resolves every write target and refuses anything outside `~/.claude/` and `~/.copilot/`, blocking traversal via a crafted skill directory name;
 - skips symlinks inside skills rather than following them;
 - rejects skill directory names that are not plain kebab-case;

@@ -101,6 +101,47 @@ describe('installer covers what the done skill depends on', () => {
   });
 });
 
+describe('installer output plan', () => {
+  /** Run the installer in dry-run and return the printed plan. */
+  async function plan(...flags) {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const { stdout } = await promisify(execFile)(
+      process.execPath,
+      ['scripts/install.mjs', '--dry-run', ...flags],
+      { cwd: REPO_ROOT },
+    );
+    return stdout;
+  }
+
+  test('installs agents to both runtimes by default', async () => {
+    const out = await plan();
+    // Both have a user-scope agents directory; Copilot CLI's agent-creation
+    // docs specify the .agent.md extension for it.
+    assert.match(out, /~\/\.claude\/agents\/docs-auditor\.md/);
+    assert.match(out, /~\/\.copilot\/agents\/docs-auditor\.agent\.md/);
+  });
+
+  test('--no-agents skips them', async () => {
+    assert.doesNotMatch(await plan('--no-agents'), /agents\//);
+  });
+
+  test('target restrictions apply to agents', async () => {
+    const claude = await plan('--claude-only');
+    assert.match(claude, /~\/\.claude\/agents\//);
+    assert.doesNotMatch(claude, /~\/\.copilot\//);
+
+    const copilot = await plan('--copilot-only');
+    assert.match(copilot, /~\/\.copilot\/agents\//);
+    assert.doesNotMatch(copilot, /~\/\.claude\//);
+  });
+
+  test('plan leaks no absolute home path', async () => {
+    const out = await plan();
+    assert.doesNotMatch(out, /\/Users\/|\/home\//);
+  });
+});
+
 describe('agent instructions stay accurate', () => {
   test('test-auditor names the real test command', async () => {
     // A hardcoded inventory in an agent file drifts silently. This one already

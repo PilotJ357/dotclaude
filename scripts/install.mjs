@@ -10,11 +10,12 @@
  * executes repository content, and refuses to write outside the two target
  * roots. See docs/security.md.
  */
-import { readdir, mkdir, copyFile, rm, symlink, readFile } from 'node:fs/promises';
+import { readdir, mkdir, copyFile, writeFile, rm, symlink, readFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
 import { SKILLS_DIR, AGENTS_DIR, HOOKS_DIR, rel } from './lib/paths.mjs';
+import { parseFrontmatter, stringifyFrontmatter } from './lib/frontmatter.mjs';
 import {
   resolveWithin,
   isSafeSkillName,
@@ -34,7 +35,7 @@ Usage: node scripts/install.mjs [options]
   --dry-run        Print exactly what would be written, change nothing
   --link           Symlink instead of copy (needs Developer Mode on Windows)
   --force          Overwrite skills that are already installed
-  --no-agents      Skip subagents (they go to ~/.claude/agents, Claude Code only)
+  --no-agents      Skip subagents (~/.claude/agents and ~/.copilot/agents)
   --with-hooks     Also install .claude/hooks/ — these EXECUTE on your machine
   --claude-only    Install to ~/.claude only
   --copilot-only   Install to ~/.copilot only
@@ -73,9 +74,7 @@ function parseArgs(argv) {
     link: has('--link'),
     force: has('--force'),
     withHooks: has('--with-hooks'),
-    // Copilot reads subagents from .github/agents/ in a repository only — it
-    // has no user-scope agents directory — so these go to ~/.claude/ alone.
-    agents: !has('--no-agents') && targets.includes(TARGETS.claude),
+    agents: !has('--no-agents'),
     targets,
   };
 }
@@ -108,14 +107,73 @@ async function listSkills() {
  * Subagent definitions. The `done` skill spawns `docs-auditor` and
  * `test-auditor` by name, so installing skills without these leaves the skill
  * silently falling back to its inline path.
+ *
+ * Both runtimes have a user-scope agents directory: `~/.claude/agents/` and
+ * `~/.copilot/agents/`. The repository-scope stubs in `.github/agents/` point
+ * back at `.claude/agents/`, which does not resolve from a home directory, so
+ * a home install carries the full body instead of a pointer.
  */
 async function listAgents() {
   const entries = await readdir(AGENTS_DIR, { withFileTypes: true });
+  const agents = [];
 
-  return entries
-    .filter((e) => e.isFile() && e.name.endsWith('.md') && e.name !== 'README.md')
-    .map((e) => e.name)
-    .sort();
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    if (entry.name === 'README.md') continue;
+
+    const source = await readFile(path.join(AGENTS_DIR, entry.name), 'utf8');
+    const { data, body } = parseFrontmatter(source);
+
+    agents.push({
+      fileName: entry.name,
+      name: data.name ?? entry.name.replace(/\.md$/, ''),
+      source,
+      // Copilot understands `prompt`, `tools` and `mcp-servers`; Claude Code
+      // uses `tools` and `model`. Only the two fields both read carry over.
+      copilot: stringifyFrontmatter({
+        name: data.name ?? entry.name.replace(/\.md$/, ''),
+        description: data.description ?? '',
+      }) + body,
+    });
+  }
+
+  return agents.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Writes for one agent, per target root.
+ *
+ * Copilot CLI's own documentation is inconsistent about the extension: the
+ * agent-creation page states `.agent.md`, while the customization cheat sheet
+ * and GitHub's own awesome-copilot repository use plain `.md` under
+ * `.github/agents/`. `.agent.md` is used here because it is what the
+ * CLI-specific page specifies for the user-scope directory.
+ */
+function agentActions(agent, targets) {
+  const actions = [];
+
+  if (targets.includes(TARGETS.claude)) {
+    actions.push({
+      kind: 'write',
+      content: agent.source,
+      destination: resolveWithin(path.join(TARGETS.claude, 'agents'), agent.fileName),
+      replace: true,
+    });
+  }
+
+  if (targets.includes(TARGETS.copilot)) {
+    actions.push({
+      kind: 'write',
+      content: agent.copilot,
+      destination: resolveWithin(
+        path.join(TARGETS.copilot, 'agents'),
+        `${agent.name}.agent.md`,
+      ),
+      replace: true,
+    });
+  }
+
+  return actions;
 }
 
 /** Build every write this run would perform, with each target verified in-bounds. */
@@ -206,6 +264,8 @@ async function apply(actions, options) {
     if (action.kind === 'link') {
       if (action.replace) await rm(action.destination, { recursive: true, force: true });
       await symlink(action.source, action.destination, 'dir');
+    } else if (action.kind === 'write') {
+      await writeFile(action.destination, action.content, 'utf8');
     } else {
       await copyFile(action.source, action.destination);
     }
@@ -243,24 +303,17 @@ async function main() {
   const actions = await buildPlan(skills, options);
 
   if (options.agents) {
-    const agentsRoot = path.join(TARGETS.claude, 'agents');
-    for (const fileName of await listAgents()) {
-      actions.push({
-        kind: 'copy',
-        source: path.join(AGENTS_DIR, fileName),
-        destination: resolveWithin(agentsRoot, fileName),
-        replace: true,
-      });
+    for (const agent of await listAgents()) {
+      actions.push(...agentActions(agent, options.targets));
     }
   }
 
   if (options.withHooks) actions.push(...(await warnAboutHooks(options)));
 
+  const VERBS = { skip: 'skip', link: 'link', write: 'write', copy: 'copy' };
   for (const action of actions) {
-    const verb = action.kind === 'skip'
-      ? `skip     ${display(action.destination)} — ${action.reason}`
-      : `${action.kind === 'link' ? 'link' : 'copy'}     ${display(action.destination)}`;
-    console.log(`  ${verb}`);
+    const suffix = action.kind === 'skip' ? ` — ${action.reason}` : '';
+    console.log(`  ${VERBS[action.kind].padEnd(5)}    ${display(action.destination)}${suffix}`);
   }
 
   const skipped = actions.filter((a) => a.kind === 'skip').length;

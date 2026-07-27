@@ -8,12 +8,14 @@ What loads where, and what follows from it.
 |---|---|---|
 | Agent skills | `.claude/skills/<name>/SKILL.md` | `.github/skills/`, `.claude/skills/`, `.agents/skills/` |
 | Instructions | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md` (CLI only); `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` (VS Code, github.com) |
-| Subagents | `.claude/agents/*.md` | `.github/agents/*.md` |
+| Subagents | `.claude/agents/*.md`, `~/.claude/agents/*.md` | `.github/agents/*.md`, org/enterprise `/agents/`, `~/.copilot/agents/*.agent.md` |
 | Slash commands / prompts | `.claude/commands/*.md` | `.github/prompts/*.prompt.md` — VS Code and Visual Studio only |
 | Hooks | `.claude/settings.json`, `~/.claude/settings.json` | `.claude/settings.json` (cross-tool), `.github/hooks/*.json`, `.github/copilot/settings.json`, `~/.copilot/hooks/` |
 | MCP servers | `.mcp.json` | `.mcp.json`, `.vscode/mcp.json` |
 
 Personal-scope skills: `~/.claude/skills/` for Claude Code, `~/.copilot/skills/` or `~/.agents/skills/` for Copilot.
+
+Both runtimes also have a personal-scope agents directory, and for Copilot CLI a personal agent takes precedence over a repository agent of the same name. GitHub's documentation is inconsistent about the extension: the [CLI agent-creation page](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli) specifies `.agent.md`, while the customization cheat sheet and GitHub's own `awesome-copilot` repository use plain `.md` under `.github/agents/`. `scripts/install.mjs` writes `.agent.md` to the personal directory and `scripts/sync.mjs` writes `.md` under `.github/agents/`, matching each source.
 
 Sources: [customization cheat sheet](https://docs.github.com/en/copilot/reference/customization-cheat-sheet), [about agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills), [Copilot CLI custom agents](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-custom-agents), [Copilot CLI custom instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions).
 
@@ -21,7 +23,7 @@ Sources: [customization cheat sheet](https://docs.github.com/en/copilot/referenc
 
 **`.claude/skills/` is canonical.** Copilot reads three skill directories, Claude Code reads one. `.claude/skills/` is the only path both load without a build step. A vendor-neutral `src/` or `.agents/skills/` would be worse — Claude Code would load nothing from it.
 
-**Skills are the unit of authorship.** They port for free; subagents and prompt files do not. `.github/prompts/` also only helps VS Code and Visual Studio users, since Copilot CLI has no prompt-file support. CLI users reach a skill through description matching or by naming it.
+**Skills are the unit of authorship.** They port for free at repository scope; subagents and prompt files do not — a subagent must be duplicated into `.github/agents/`, and a prompt file exists only for Copilot. `.github/prompts/` also only helps VS Code and Visual Studio users; the cheat sheet marks Copilot CLI as unsupported for prompt files. CLI users reach a skill through description matching or by naming it.
 
 **`.claude/commands/` is unused.** Claude Code exposes skills as `/<name>` already, so a command file would duplicate a skill with no consumer of its own. Copilot never reads that directory; the [feature request](https://github.com/github/copilot-cli/issues/302) was closed unimplemented.
 

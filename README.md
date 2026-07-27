@@ -59,7 +59,7 @@ node scripts/install.mjs
 
 Copies `.claude/skills/*` into `~/.claude/skills/` and `~/.copilot/skills/`, and `.claude/agents/*` into `~/.claude/agents/`, making each skill available globally to both tools.
 
-Subagents go to `~/.claude/` only — Copilot reads subagents from `.github/agents/` in a repository and has no user-scope equivalent. They install by default because the `done` skill spawns them by name.
+Subagents install by default, because the `done` skill spawns them by name. Both runtimes have a user-scope agents directory, so they go to `~/.claude/agents/<name>.md` and `~/.copilot/agents/<name>.agent.md` — the Copilot copy carries only the `name` and `description` frontmatter both tools read, since the optional fields differ.
 
 | Flag | Effect |
 |---|---|

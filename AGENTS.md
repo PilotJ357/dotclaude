@@ -14,7 +14,9 @@ Copilot loads skills from `.github/skills`, `.claude/skills` or `.agents/skills`
 
 Hooks are also shared: Claude Code, Copilot CLI and VS Code all read `.claude/settings.json`. Use the `command` field and PascalCase event names to stay portable.
 
-Subagents and slash commands have no such overlap — Copilot reads subagents only from `.github/agents/`, and prompt files only from `.github/prompts/` (VS Code and Visual Studio; Copilot CLI has no prompt-file support). Those directories hold generated pointer stubs.
+Subagents and slash commands have no such overlap at repository scope. Copilot reads subagents from `.github/agents/` rather than `.claude/agents/`, and prompt files only from `.github/prompts/` (VS Code and Visual Studio; the customization cheat sheet marks Copilot CLI as unsupported for prompt files). Those directories hold generated pointer stubs.
+
+At user scope both runtimes do have an agents directory — `~/.claude/agents/` and `~/.copilot/agents/` — which is why `scripts/install.mjs` writes to both.
 
 Full matrix: [docs/portability.md](docs/portability.md).
 
