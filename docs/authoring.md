@@ -1,78 +1,77 @@
-# Authoring guide
+# Authoring
 
 ## Adding a skill
 
 ```bash
 mkdir -p .claude/skills/my-skill
 $EDITOR .claude/skills/my-skill/SKILL.md
-npm run sync
-npm test
+npm run sync && npm test
 ```
 
-`sync` generates the Copilot-side stub; `test` validates the frontmatter.
+`sync` generates the Copilot stub, `test` validates the frontmatter.
 
-### Frontmatter
+## Frontmatter
 
 Skills follow the [Agent Skills specification](https://agentskills.io/specification). Only `name` and `description` are required.
 
 ```yaml
 ---
 name: my-skill
-description: Does the thing. Use when the user asks for the thing, mentions related-term, or is about to do adjacent-activity.
+description: Does the thing. Use when the user asks for the thing, mentions a related term, or is about to do an adjacent activity.
 ---
 ```
 
-Enforced by `tests/skills.test.mjs`:
+`tests/skills.test.mjs` enforces:
 
-| Rule | Why |
+| Rule | Reason |
 |---|---|
 | `name` equals the parent directory name | The skill silently fails to load otherwise |
-| `name` is kebab-case, ≤64 chars, no leading/trailing hyphen | Spec requirement |
-| `description` present, ≤1024 chars | Spec requirement |
-| No `<` or `>` anywhere in frontmatter | Angle brackets can inject unintended instructions into the system prompt |
-| Only spec keys: `name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility` | Unknown keys are silently ignored by runtimes, so a typo fails quietly |
+| `name` kebab-case, ≤64 chars, no leading or trailing hyphen | Spec |
+| `description` present, ≤1024 chars | Spec |
+| No `<` or `>` anywhere in frontmatter | Angle brackets can inject into the system prompt |
+| Only `name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility` | Runtimes ignore unknown keys, so a typo would fail silently |
 
-### Writing a good description
+## Descriptions
 
-The description is the *only* thing a runtime sees when deciding whether to load your skill. It must answer both "what does this do" and "when should it fire". Include the words a user would actually type.
+The description is the only thing a runtime sees when deciding whether to load the skill. It must cover what the skill does and when it should fire, using words a user would actually type.
 
 Weak: `Handles session cleanup.`
+
 Strong: `Wraps up a work session: audits docs and test coverage for the session's changes, runs validation, then opens a pull request. Use when the user says they are done, finished, wrapping up, or invokes /done.`
 
-### Bodies must degrade across runtimes
+## Cross-runtime bodies
 
-Claude Code can spawn subagents in parallel. Copilot CLI cannot. Do not assume either — say what to do in both cases:
+Claude Code can spawn subagents in parallel; Copilot CLI cannot. State both paths rather than assuming one:
 
 ```markdown
 Run both audits. If your runtime supports parallel subagents, spawn them
-concurrently. Otherwise perform each audit inline, in sequence.
+concurrently. Otherwise perform each inline, in sequence.
 ```
 
-Same for tool names. Prefer describing the action ("read the file", "run the test command") over naming a specific tool that only one runtime has.
+The same applies to tool names — describe the action ("read the file", "run the test command") rather than naming a tool only one runtime has.
 
-### Bundled resources
+## Bundled resources
 
-A skill may ship supporting files alongside `SKILL.md` — `references/`, `scripts/`, `templates/`, `assets/`. Reference them by path relative to the skill directory. `tests/links.test.mjs` verifies every relative reference resolves on disk, so a typo fails the build rather than silently producing a dead pointer.
+A skill may ship supporting files beside `SKILL.md` in `references/`, `scripts/`, `templates/` or `assets/`, referenced by path relative to the skill directory. `tests/links.test.mjs` verifies every relative reference resolves, so a typo fails the build instead of producing a dead pointer at runtime.
 
-## Adding a subagent
+Note that `scripts/install.mjs` copies only `.md`, `.txt`, `.json`, `.yaml` and `.yml`. Executable bundled resources will not be installed.
 
-Subagents live at `.claude/agents/<name>.md` and need `name` + `description` frontmatter. Claude Code additionally understands `tools` and `model`; Copilot understands `prompt`, `tools` and `mcp-servers`. The schemas do not overlap cleanly, so `sync` copies only `name` and `description` into the `.github/agents/` stub and points the body back at the canonical file.
+## Subagents
 
-Subagents are strictly less portable than skills. Reach for one only when you genuinely need isolated context — otherwise write a skill.
+`.claude/agents/<name>.md`, with `name` matching the filename and a `description`. Claude Code also understands `tools` and `model`; Copilot understands `prompt`, `tools` and `mcp-servers`. Because the schemas do not overlap, `sync` copies only `name` and `description` into the `.github/agents/` stub and points the body at the canonical file.
 
-## Adding a hook
+Subagents are less portable than skills. Use one only when isolated context is genuinely required.
 
-Read [docs/security.md](security.md) first. Hooks are shell that runs automatically on anyone who installs this config, which makes every hook change a privileged change.
+## Hooks
 
-`tests/hygiene.test.mjs` rejects hooks that pipe network fetches into a shell, `eval` fetched content, or reference absolute paths outside the repo. That is a floor, not a substitute for review.
+Read [.claude/hooks/README.md](../.claude/hooks/README.md) and [docs/security.md](security.md) first. Hooks run automatically on anyone who installs this config, so changes there require review under `CODEOWNERS` and must pass the checks in `tests/hygiene.test.mjs`.
 
-## Checklist before opening a PR
+## Before a PR
 
-Just run `/done` — it covers all of this. Manually, the equivalent is:
+`/done` covers this. Manually:
 
 ```bash
 npm run sync && npm run validate
 ```
 
-Plus: no absolute home paths, no work-internal content, docs updated to match behaviour.
-
+Plus: no absolute home paths, no employer-specific content, docs updated to match behaviour.

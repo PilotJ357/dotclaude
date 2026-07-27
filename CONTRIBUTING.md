@@ -2,19 +2,17 @@
 
 ## Setup
 
-Node 22+ required (`.nvmrc` pins it).
+Node 22+ (`.nvmrc` pins it).
 
 ```bash
 npm ci
 ```
 
-**`npm ci`, never `npm install`.** `ci` installs exactly what the lockfile says; `install` can resolve something else and rewrite it.
+Use `npm ci`, not `npm install`. `ci` installs exactly what the lockfile specifies; `install` can resolve something else and rewrite it.
 
-## The one rule
+## Source of truth
 
-**`.claude/` is the source of truth. `.github/` is generated.**
-
-Never hand-edit files under `.github/` except `workflows/`, `dependabot.yml` and `CODEOWNERS`. Everything else there carries a `GENERATED` header and will be overwritten.
+`.claude/` is authored. `.github/` is generated from it by `scripts/sync.mjs`, except `workflows/`, `dependabot.yml` and `CODEOWNERS`, which are hand-written. Generated files carry a `GENERATED` header.
 
 After editing anything in `.claude/` or `AGENTS.md`:
 
@@ -22,55 +20,49 @@ After editing anything in `.claude/` or `AGENTS.md`:
 npm run sync
 ```
 
-CI verifies freshness and fails on drift. It never regenerates for you.
+CI verifies freshness and fails on drift. It does not regenerate.
 
-## Workflow
+## Commands
 
-```bash
-npm run sync       # regenerate .github/
-npm run validate   # sync:check + tests + npm audit
-```
+| Command | Does |
+|---|---|
+| `npm run sync` | Regenerate `.github/` |
+| `npm run sync:check` | Fail if `.github/` is stale |
+| `npm test` | Run the validation suite |
+| `npm run validate` | `sync:check` + tests + `npm audit` |
 
-Or just run `/done`, which does all of it plus a docs and test-coverage audit, then opens the PR.
+`/done` runs all of it plus a docs and coverage audit, then opens the PR.
 
 ## Adding things
 
-**A skill** — the preferred unit, because skills are the only primitive both tools load natively:
+**Skills** are the preferred unit — the only primitive both tools load natively. Create `.claude/skills/<name>/SKILL.md`, then `npm run sync && npm test`. Frontmatter rules: [docs/authoring.md](docs/authoring.md).
 
-```bash
-mkdir -p .claude/skills/my-skill
-$EDITOR .claude/skills/my-skill/SKILL.md
-npm run sync && npm test
-```
+**Subagents** go in `.claude/agents/<name>.md` with `name` and `description`. Less portable than skills; use only when isolated context is genuinely needed.
 
-Frontmatter rules, description guidance and cross-runtime portability requirements are in [docs/authoring.md](docs/authoring.md).
+**Hooks** execute on anyone who installs this config. Read [.claude/hooks/README.md](.claude/hooks/README.md) and [docs/security.md](docs/security.md) first. Requires review under `CODEOWNERS`.
 
-**A subagent** — `.claude/agents/<name>.md`, needs `name` + `description`. Less portable than a skill; only reach for one when you genuinely need isolated context.
-
-**A hook** — read [docs/security.md](docs/security.md) first. Hooks execute automatically on anyone who installs this config, so hook changes are privileged changes and require review under `CODEOWNERS`.
-
-Do **not** add `.claude/commands/`. Claude Code already exposes skills as `/<name>`; a command file duplicates a skill for no benefit, and Copilot never reads that directory.
+Do not add `.claude/commands/`. Claude Code exposes skills as `/<name>` already, and Copilot never reads that directory.
 
 ## Dependencies
 
-The tree is **two packages**. `npm ls --all` should show `js-yaml` and its only child `argparse`, and nothing else.
-
-Adding a dependency needs a justification in the PR describing why the standard library and the existing dependency cannot cover it. Test frameworks in particular: `node:test` is built in and sufficient here.
+`npm ls --all` should show `js-yaml` and `argparse`, nothing else. Adding a dependency requires a PR justification explaining why the standard library and existing dependency cannot cover it. `node:test` is built in — do not add a test framework.
 
 ## What CI enforces
 
 | Check | Enforced by |
 |---|---|
 | Skill frontmatter matches the Agent Skills spec | `tests/skills.test.mjs` |
-| Subagents have `name` + `description` | `tests/agents.test.mjs` |
-| Generated `.github/` tree is current | `tests/sync.test.mjs` |
-| No home paths, no work-internal content, no unsafe hook patterns | `tests/hygiene.test.mjs` |
-| Relative references inside skills resolve | `tests/links.test.mjs` |
+| Subagents have `name` and `description` | `tests/agents.test.mjs` |
+| `.github/` is current, stubs stay trivial | `tests/sync.test.mjs` |
+| No home paths, denied terms, credential shapes, unsafe hooks | `tests/hygiene.test.mjs` |
+| Relative links resolve | `tests/links.test.mjs` |
+| Installer guards reject traversal | `tests/install.test.mjs` |
+| Dependency tree ≤ 2 packages | `.github/workflows/validate.yml` |
+| Every action pinned to a 40-char SHA | `.github/workflows/validate.yml` |
 | No high or critical advisories | `npm audit` |
 
-## Style
+## Conventions
 
-- Lowercase kebab-case file names.
-- Markdown only under the skill, agent and generated directories.
-- No absolute home directory paths and no employer-specific or work-internal content anywhere. This repo is public and general-purpose; `hygiene.test.mjs` enforces it.
-- Skill bodies must work in both Claude Code and Copilot. Don't assume parallel subagents exist — say what to do in each case.
+Lowercase kebab-case filenames, except `SKILL.md`, `README.md` and root metadata files. Markdown only under the skill, agent and generated directories. No absolute home paths and no employer-specific content — `tests/denylist.txt` holds the term list.
+
+Skill bodies must work in both runtimes. Claude Code can spawn parallel subagents; Copilot CLI cannot. State what to do in each case rather than assuming one.

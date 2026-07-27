@@ -1,52 +1,50 @@
-# Portability matrix
+# Portability
 
-What actually loads where, and what it means for how this repo is laid out.
+What loads where, and what follows from it.
 
 ## Support matrix
 
-| Primitive | Claude Code reads | GitHub Copilot reads | Shared? |
-|---|---|---|---|
-| **Agent skills** | `.claude/skills/<name>/SKILL.md` | `.github/skills/`, **`.claude/skills/`**, `.agents/skills/` | ✅ natively, no work required |
-| Instructions | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md` (**CLI only**); `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` (VS Code, github.com) | ⚠️ partial |
-| Subagents | `.claude/agents/*.md` | `.github/agents/*.md` only | ❌ |
-| Slash commands / prompts | `.claude/commands/*.md` | `.github/prompts/*.prompt.md` — VS Code and Visual Studio only, **not Copilot CLI** | ❌ |
-| Hooks | `.claude/hooks/` + `.claude/settings.json` | no equivalent | ❌ Claude Code only |
-| MCP servers | `.mcp.json` | `.mcp.json`, `.vscode/mcp.json` | ⚠️ partial |
+| Primitive | Claude Code | GitHub Copilot |
+|---|---|---|
+| Agent skills | `.claude/skills/<name>/SKILL.md` | `.github/skills/`, `.claude/skills/`, `.agents/skills/` |
+| Instructions | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md` (CLI only); `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` (VS Code, github.com) |
+| Subagents | `.claude/agents/*.md` | `.github/agents/*.md` |
+| Slash commands / prompts | `.claude/commands/*.md` | `.github/prompts/*.prompt.md` — VS Code and Visual Studio only |
+| Hooks | `.claude/hooks/` + `.claude/settings.json` | none |
+| MCP servers | `.mcp.json` | `.mcp.json`, `.vscode/mcp.json` |
+
+Personal-scope skills: `~/.claude/skills/` for Claude Code, `~/.copilot/skills/` or `~/.agents/skills/` for Copilot.
 
 Sources: [customization cheat sheet](https://docs.github.com/en/copilot/reference/customization-cheat-sheet), [about agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills), [Copilot CLI custom agents](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-custom-agents), [Copilot CLI custom instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions).
 
-## What follows from it
+## Consequences
 
-### 1. `.claude/skills/` is the canonical home for skills
+**`.claude/skills/` is canonical.** Copilot reads three skill directories, Claude Code reads one. `.claude/skills/` is the only path both load without a build step. A vendor-neutral `src/` or `.agents/skills/` would be worse — Claude Code would load nothing from it.
 
-Not a vendor preference — the intersection. Copilot reads three skill directories; Claude Code reads exactly one. `.claude/skills/` is the only path both load without any build step. A vendor-neutral `src/` or `.agents/skills/` would be strictly worse, because Claude Code would then load nothing.
+**Skills are the unit of authorship.** They port for free; subagents and prompt files do not. `.github/prompts/` also only helps VS Code and Visual Studio users, since Copilot CLI has no prompt-file support. CLI users reach a skill through description matching or by naming it.
 
-### 2. Skills are the preferred unit of authorship
+**`.claude/commands/` is unused.** Claude Code exposes skills as `/<name>` already, so a command file would duplicate a skill with no consumer of its own. Copilot never reads that directory; the [feature request](https://github.com/github/copilot-cli/issues/302) was closed unimplemented.
 
-Skills port for free. Subagents and prompt files do not. So anything that can be a skill should be a skill, and `.github/` gets thin generated stubs for the rest.
+## Bridging approach
 
-Note that `.github/prompts/` only helps VS Code and Visual Studio users — Copilot CLI has no prompt-file support at all. CLI users invoke skills by description-matching, or by asking for the skill by name.
+Three options for getting content from `.claude/` to `.github/`:
 
-### 3. `.claude/commands/` is deliberately unused
-
-Claude Code already exposes skills as `/<name>`. A command file would be a second copy of a skill with no consumer that the skill does not already serve. Copilot never reads `.claude/commands/` — the [feature request for it](https://github.com/github/copilot-cli/issues/302) was closed unimplemented.
-
-### 4. Stubs, not symlinks, not a CI copy job
-
-Three options were considered for bridging `.claude/` → `.github/`:
-
-- **Symlinks.** Git tracks them fine, but they require Developer Mode or administrator rights on Windows. Unacceptable for a repo meant to be used by other people. Rejected.
-- **A GitHub Actions job that copies files.** Rejected: it only fires on push, so every local checkout has stale generated files; it produces bot commits that collide with the `/done` PR flow; you cannot verify the output before pushing; and it forces write permissions onto a workflow that should be read-only.
-- **Locally generated pointer stubs, freshness-verified in CI.** Chosen. This is what [`github/awesome-copilot`](https://github.com/github/awesome-copilot) does — its CI fails if a build would modify any tracked file.
-
-Because the stubs contain only `name`/`description` frontmatter plus a pointer line, they hold no substance that *can* semantically drift. The only failure mode is staleness, and `npm run sync:check` catches that.
-
-## Generated file map
-
-| Generated | From |
+| Approach | Verdict |
 |---|---|
-| `.github/prompts/<name>.prompt.md` | `.claude/skills/<name>/SKILL.md` |
-| `.github/agents/<name>.md` | `.claude/agents/<name>.md` |
-| `.github/copilot-instructions.md` | `AGENTS.md` (full copy — VS Code Copilot will not follow a pointer) |
+| Symlinks | Rejected. Require Developer Mode or admin rights on Windows. |
+| CI job that copies files | Rejected. Fires only on push, so local checkouts stay stale; produces bot commits that collide with the `/done` PR flow; output is unverifiable before pushing; forces write permissions onto a read-only workflow. |
+| Locally generated stubs, freshness-verified in CI | Chosen. Matches [`github/awesome-copilot`](https://github.com/github/awesome-copilot), whose CI fails if a build would modify a tracked file. |
 
-Regenerate with `npm run sync`. Verify with `npm run sync:check`.
+Stubs contain only `name`/`description` frontmatter and a pointer line, so there is no substance that can semantically drift. Staleness is the only failure mode, and `npm run sync:check` catches it.
+
+## Generated files
+
+| Path | Source | Form |
+|---|---|---|
+| `.github/prompts/<name>.prompt.md` | `.claude/skills/<name>/SKILL.md` | Stub |
+| `.github/agents/<name>.md` | `.claude/agents/<name>.md` | Stub, `name` + `description` only |
+| `.github/copilot-instructions.md` | `AGENTS.md` | Full copy, relative links reparented |
+
+The instructions file is a copy rather than a pointer because Copilot in VS Code reads it directly and will not follow a reference out of it. Agent stubs carry only two fields because the schemas differ: Claude Code uses `tools` and `model`, Copilot uses `prompt`, `tools` and `mcp-servers`.
+
+Regenerate with `npm run sync`; verify with `npm run sync:check`.

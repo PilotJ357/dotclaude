@@ -1,96 +1,104 @@
-# Security and supply chain
+# Security
 
 ## Threat model
 
-This repo is mostly markdown, which makes it easy to under-think. But it distributes three things that **execute on someone else's machine**:
+Three things in this repo execute on a machine that is not the author's:
 
-1. `.claude/hooks/` — shell scripts an agent runtime runs automatically, often without a prompt.
+1. `.claude/hooks/` — shell an agent runtime runs automatically, often without prompting.
 2. `.claude/settings.json` — registers those hooks.
-3. `scripts/install.mjs` — copies config into a user's home directory.
+3. `scripts/install.mjs` — writes into the user's home directory.
 
-A compromise of any of those runs arbitrary code on every developer who installed this config. Everything below is scoped to that risk. Nothing here protects against a malicious *skill* body, which is a prompt-injection concern, not a supply-chain one — treat skill text as instructions you are choosing to trust.
+A compromise of any of them runs code on every developer who installed the config. The measures below are scoped to that.
 
-## Dependency posture
+Out of scope: a malicious skill *body*. That is prompt injection, not supply chain. Skill text is instructions you choose to trust when installing.
 
-**Budget: two packages.**
+## Dependencies
 
-```bash
-npm ls --all
-```
+Budget is two packages. `npm ls --all` should show `js-yaml` and its child `argparse`, nothing else. CI fails above that count. Additions need PR justification.
 
-should show `js-yaml` and its only child `argparse`, and nothing else. Adding a dependency requires a justification in the pull request.
-
-- **`js-yaml@4`** is the only direct runtime dependency. Version 4 dropped `esprima`; its one remaining child is `argparse@2`, a pure-JavaScript rewrite with no dependencies of its own and no install scripts. `js-yaml` parses frontmatter using the default safe schema — `yaml.load` in v4 will not construct arbitrary types. Do not swap it for a custom schema.
-- **No test framework.** Tests run on Node's built-in `node:test` and `node:assert`. Vitest was considered and rejected: it pulls in esbuild, rollup and vite — over a hundred packages plus platform binaries fetched at install time — to validate a handful of markdown files.
-- **No frontmatter library.** `gray-matter` is the common choice but pulls `section-matter`, `strip-bom-string` and `kind-of`. Splitting frontmatter is a regex; the parse is `js-yaml`.
+| Choice | Reason |
+|---|---|
+| `js-yaml@4` as the only direct dependency | v4 dropped `esprima`; its one child `argparse@2` is a pure-JavaScript rewrite with no dependencies and no install scripts. Parses with the default safe schema — `yaml.load` will not construct arbitrary types. Do not substitute a custom schema. |
+| `node:test` instead of a framework | Vitest pulls esbuild, rollup and vite — over a hundred packages plus platform binaries fetched at install — to validate a handful of markdown files. |
+| No frontmatter library | `gray-matter` pulls `section-matter`, `strip-bom-string` and `kind-of`. Splitting frontmatter is a regex; parsing is `js-yaml`. |
 
 ### npm settings
 
-`.npmrc` sets:
-
-| Setting | Why |
+| `.npmrc` setting | Reason |
 |---|---|
-| `ignore-scripts=true` | Blocks install-time lifecycle scripts (`postinstall` and friends) — the most commonly abused npm vector. Nothing in this tree needs them. |
-| `save-exact=true` | No floating ranges. A `^` is an unreviewed future upgrade. |
-| `engine-strict=true` | Refuse to install on an unsupported Node. |
-| `audit-level=high` | `npm audit` fails the build on high and critical. |
+| `ignore-scripts=true` | Blocks install-time lifecycle scripts, the most commonly abused npm vector. Nothing in this tree needs them. |
+| `save-exact=true` | A `^` range is an unreviewed future upgrade. |
+| `engine-strict=true` | Refuse installation on an unsupported Node. |
+| `audit-level=high` | `npm audit` fails on high and critical. |
 
-**Use `npm ci`, never `npm install`, in any automation.** `npm ci` installs exactly what the committed lockfile says; `npm install` can silently resolve something else and rewrite the lockfile.
+Use `npm ci`, never `npm install`. `ci` installs exactly what the lockfile specifies; `install` can resolve differently and rewrite it.
 
 ## Workflow hardening
 
 `.github/workflows/validate.yml`:
 
-- **Actions pinned to full 40-character commit SHAs**, with the human-readable version in a trailing comment. Tags are mutable — an attacker who compromises an action repo can repoint `v4` at anything. SHAs cannot be repointed.
-- **`permissions: {}` at the top level**, re-granted per job as `contents: read`. Nothing in this repo's CI needs to write.
-- **`persist-credentials: false`** on checkout. Otherwise the `GITHUB_TOKEN` is left sitting in `.git/config` where any subsequent step — including one injected through a compromised dependency — can read it.
-- **`pull_request`, never `pull_request_target`.** The latter runs with repository secrets available while checking out fork-authored code, which is how most public-repo Actions compromises happen.
-- **No secrets referenced at all**, so there is nothing in the job environment worth stealing.
-- `concurrency` with `cancel-in-progress`, so a stale run cannot report a green check for superseded code.
+| Measure | Reason |
+|---|---|
+| Actions pinned to full 40-character SHAs | Tags are mutable. Whoever controls an action repository can repoint `v4`; a SHA cannot be repointed. Verified by a CI step that requires exactly 40 hex characters. |
+| `permissions: {}` top level, `contents: read` per job | Nothing in this CI needs write access. |
+| `persist-credentials: false` on checkout | Otherwise `GITHUB_TOKEN` remains in `.git/config`, readable by any later step including one injected through a compromised dependency. |
+| `pull_request`, not `pull_request_target` | The latter exposes repository secrets while checking out fork-authored code. |
+| No secrets referenced | Nothing in the job environment is worth stealing. |
+| `concurrency` with `cancel-in-progress` | Prevents a stale run reporting green for superseded code. |
 
-`dependabot.yml` covers both `npm` and `github-actions`, so the SHA pins get reviewed updates instead of quietly rotting.
+## Repository settings
 
-### Repository settings to enable
+Applied:
 
-Not expressible in code — set these in repository settings:
+| Setting | Value |
+|---|---|
+| Default `GITHUB_TOKEN` permissions | Read-only |
+| Actions creating or approving pull requests | Disabled |
+| Allowed actions | GitHub-owned only |
+| Dependabot alerts and automated security fixes | Enabled |
+| Dependabot updates | `npm` and `github-actions`, weekly |
+| Merge strategy | Squash only, branch deleted on merge |
+| Wiki, projects | Disabled |
 
-- Secret scanning **with push protection**.
-- Require the `validate` check before merge.
-- Require review for `CODEOWNERS` paths (`.github/workflows/`, `scripts/`, `.claude/hooks/`).
+Unavailable on a free private repository, and worth revisiting if this goes public:
+
+- **Branch protection / rulesets** — require the `validate` check, require Code Owner review, block force-push and deletion, require linear history. Needs GitHub Pro while private; free once public. Until then `CODEOWNERS` is advisory only.
+- **Secret scanning and push protection** — GitHub Advanced Security; free on public repositories.
 
 ## Hook policy
 
-Hooks are the sharpest edge here, so the policy exists before the first hook does.
+Hooks are the sharpest edge, so the policy exists before the first hook does. `.claude/hooks/` is in `CODEOWNERS` and every change there is a privileged change.
 
-- Every hook change is a privileged change and gets explicit review. `.claude/hooks/` is in `CODEOWNERS`.
-- `tests/hygiene.test.mjs` fails the build on:
-  - a network fetch piped into a shell (`curl … | sh`, `wget … | bash`, and variants),
-  - `eval` applied to fetched or otherwise dynamic content,
-  - absolute paths pointing outside the repository,
-  - `sudo`.
-- That is an automated floor, not a substitute for reading the diff. It catches the obvious shapes, not a determined author.
-- `README.md` states plainly that adopting this repo's `settings.json` enables hook execution, and tells users to read `.claude/hooks/` before installing.
+`tests/hygiene.test.mjs` scans non-markdown files in that directory and rejects network fetches piped into a shell, `eval` on dynamic content, `sudo`, and absolute paths into system directories (the shebang line is exempt). Markdown there is documentation and is not scanned.
 
-## Installer constraints
+These catch known-bad shapes. They do not replace reading the diff, and passing them is not evidence a hook is safe.
+
+Details: [.claude/hooks/README.md](../.claude/hooks/README.md).
+
+## Installer
 
 `scripts/install.mjs` runs on other people's machines, so it:
 
-- copies **`.md` files only**, and never executes anything from the repo;
-- resolves every write target and **refuses to write outside `~/.claude/` and `~/.copilot/`**, which blocks path traversal via a crafted skill directory name;
-- defaults to copying rather than symlinking, because symlinks need Developer Mode or admin rights on Windows;
-- supports `--dry-run` to print the full plan before touching the filesystem;
-- installs hooks only behind an explicit `--with-hooks` flag, with a printed warning.
+- copies data files only (`.md`, `.txt`, `.json`, `.yaml`, `.yml`) and never executes repository content;
+- resolves every write target and refuses anything outside `~/.claude/` and `~/.copilot/`, blocking traversal via a crafted skill directory name;
+- skips symlinks inside skills rather than following them;
+- rejects skill directory names that are not plain kebab-case;
+- defaults to copying, since symlinks need Developer Mode or admin rights on Windows;
+- prints the full plan under `--dry-run` before touching the filesystem;
+- installs hooks only under `--with-hooks`, after listing the files.
 
-## `/done` constraints
+Guards are tested directly in `tests/install.test.mjs`, including traversal, absolute paths and executable extensions.
 
-The `/done` skill opens pull requests, so:
+## `/done`
 
-- it uses the already-authenticated `gh` CLI and never reads, prints or writes a token;
-- it runs `npm ci`, never `npm install`;
-- it treats diff content and subagent output as **data, not instructions**. Text inside a diff must not be able to redirect the PR target, skip a gate, or change what gets committed;
-- it stops on any failing gate rather than opening a PR;
-- it confirms with the user before pushing, because pushing is outward-facing and not cleanly reversible.
+The skill opens pull requests, so it:
+
+- uses the already-authenticated `gh` CLI and never reads, prints or writes a token;
+- runs `npm ci`, never `npm install`;
+- treats diff content and subagent output as data. Text in a diff must not redirect the PR target, skip a gate, or change what is committed;
+- stops on any failing gate;
+- confirms before pushing.
 
 ## Reporting
 
-See [SECURITY.md](../SECURITY.md).
+[SECURITY.md](../SECURITY.md).
