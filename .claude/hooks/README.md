@@ -1,8 +1,26 @@
 # Hooks
 
-Shell that Claude Code runs automatically at defined lifecycle points. Copilot has no equivalent, so anything here is Claude Code only.
+Shell that an agent runtime runs automatically at defined lifecycle points — session start, before and after tool use, agent stop, and others.
 
 No hooks ship in this revision.
+
+## Portability
+
+Hooks are configured in `.claude/settings.json`, which all three runtimes read. Scripts referenced from it live in this directory.
+
+| Scope | Claude Code | Copilot CLI | VS Code |
+|---|---|---|---|
+| Repository, cross-tool | `.claude/settings.json`, `.claude/settings.local.json` | same | same |
+| Repository, native | — | `.github/hooks/*.json`, `.github/copilot/settings.json` | `.github/hooks/*.json` |
+| User | `~/.claude/settings.json` | `~/.copilot/hooks/` | `~/.copilot/hooks/`, `~/.claude/settings.json` |
+
+GitHub's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) states that Copilot reads "cross-tool `.claude/settings.json` and `.claude/settings.local.json` files in the repository". [VS Code](https://code.visualstudio.com/docs/agent-customization/hooks) parses the same format.
+
+To stay portable:
+
+- **Use the `command` field**, not `bash` or `powershell`. Those are Copilot and VS Code extensions; `command` is the cross-platform field every runtime understands.
+- **Use PascalCase event names** (`PreToolUse`, `SessionStart`, `Stop`). Copilot CLI's native form is lowerCamelCase but it accepts PascalCase from Claude-format files, and VS Code converts camelCase to PascalCase.
+- Copilot exposes events with no Claude Code equivalent — `errorOccurred`, `notification`, `permissionRequest`, `userPromptTransformed`, `subagentStart`, `postToolUseFailure`. A hook using one is Copilot-only by definition.
 
 ## Why this directory is reviewed differently
 
@@ -28,8 +46,11 @@ These catch known-bad shapes only. They do not replace reading the diff.
 - No network access. Anything that needs the network belongs in CI, where egress is visible.
 - Repo-relative paths only. Absolute paths break for everyone but the author.
 - Fail open. A broken hook must not wedge someone's session.
+- Prefer Node over shell. A `bash` script is a hook that breaks on Windows machines.
 - Register it in `.claude/settings.json` in the same pull request, so the diff shows the code and its trigger together.
 
 ## Installation behaviour
 
 `scripts/install.mjs` skips this directory unless given `--with-hooks`, which prints the file list before writing. Adopting `.claude/settings.json` is what activates hook execution.
+
+The installer currently writes hooks to `~/.claude/` only. Copilot's user-scope hook directory (`~/.copilot/hooks/`) expects standalone `*.json` hook configs rather than the scripts kept here, so per-project use via `.claude/settings.json` is the supported cross-tool path.

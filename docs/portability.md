@@ -10,7 +10,7 @@ What loads where, and what follows from it.
 | Instructions | `CLAUDE.md`, `.claude/CLAUDE.md` | `AGENTS.md`, `CLAUDE.md`, `.claude/CLAUDE.md` (CLI only); `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` (VS Code, github.com) |
 | Subagents | `.claude/agents/*.md` | `.github/agents/*.md` |
 | Slash commands / prompts | `.claude/commands/*.md` | `.github/prompts/*.prompt.md` — VS Code and Visual Studio only |
-| Hooks | `.claude/hooks/` + `.claude/settings.json` | none |
+| Hooks | `.claude/settings.json`, `~/.claude/settings.json` | `.claude/settings.json` (cross-tool), `.github/hooks/*.json`, `.github/copilot/settings.json`, `~/.copilot/hooks/` |
 | MCP servers | `.mcp.json` | `.mcp.json`, `.vscode/mcp.json` |
 
 Personal-scope skills: `~/.claude/skills/` for Claude Code, `~/.copilot/skills/` or `~/.agents/skills/` for Copilot.
@@ -24,6 +24,20 @@ Sources: [customization cheat sheet](https://docs.github.com/en/copilot/referenc
 **Skills are the unit of authorship.** They port for free; subagents and prompt files do not. `.github/prompts/` also only helps VS Code and Visual Studio users, since Copilot CLI has no prompt-file support. CLI users reach a skill through description matching or by naming it.
 
 **`.claude/commands/` is unused.** Claude Code exposes skills as `/<name>` already, so a command file would duplicate a skill with no consumer of its own. Copilot never reads that directory; the [feature request](https://github.com/github/copilot-cli/issues/302) was closed unimplemented.
+
+## Hooks
+
+`.claude/settings.json` is the second natively shared surface after `.claude/skills/`. GitHub's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) states Copilot reads "cross-tool `.claude/settings.json` and `.claude/settings.local.json` files in the repository", and [VS Code](https://code.visualstudio.com/docs/agent-customization/hooks) parses the same format, converting Copilot's lowerCamelCase event names to PascalCase.
+
+Portability rules:
+
+| Concern | Portable choice |
+|---|---|
+| Command field | `command`. `bash` and `powershell` are Copilot and VS Code extensions. |
+| Event names | PascalCase — `SessionStart`, `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionEnd`. Copilot's native form is lowerCamelCase but it accepts PascalCase from Claude-format files. |
+| Copilot-only events | `errorOccurred`, `notification`, `permissionRequest`, `preCompact`, `userPromptTransformed`, `subagentStart`, `postToolUseFailure` have no Claude Code equivalent. |
+
+Copilot loads hooks from policy, then user, then project, then plugins, and combines them; all matching hooks for an event run. Policy hooks cannot be disabled by `disableAllHooks`.
 
 ## Bridging approach
 

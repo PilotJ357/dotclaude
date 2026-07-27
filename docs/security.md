@@ -95,6 +95,8 @@ Unavailable on a free private repository, and worth revisiting if this goes publ
 
 Hooks are the sharpest edge, so the policy exists before the first hook does. `.claude/hooks/` is in `CODEOWNERS` and every change there is a privileged change.
 
+The blast radius is wider than Claude Code alone: Copilot CLI and VS Code both read `.claude/settings.json`, so a hook committed here runs in all three runtimes on anyone who adopts the config.
+
 `tests/hygiene.test.mjs` scans non-markdown files in that directory and rejects network fetches piped into a shell, `eval` on dynamic content, `sudo`, and absolute paths into system directories (the shebang line is exempt). Markdown there is documentation and is not scanned.
 
 These catch known-bad shapes. They do not replace reading the diff, and passing them is not evidence a hook is safe.

@@ -12,6 +12,8 @@ After editing `.claude/` or this file, run `npm run sync`. CI verifies freshness
 
 Copilot loads skills from `.github/skills`, `.claude/skills` or `.agents/skills`. Claude Code loads them only from `.claude/skills`. That directory is the intersection, so it is canonical and skills are the preferred unit of authorship.
 
+Hooks are also shared: Claude Code, Copilot CLI and VS Code all read `.claude/settings.json`. Use the `command` field and PascalCase event names to stay portable.
+
 Subagents and slash commands have no such overlap — Copilot reads subagents only from `.github/agents/`, and prompt files only from `.github/prompts/` (VS Code and Visual Studio; Copilot CLI has no prompt-file support). Those directories hold generated pointer stubs.
 
 Full matrix: [docs/portability.md](docs/portability.md).
@@ -33,7 +35,7 @@ This repo distributes content that executes on other machines.
 - No dependency version published within the last 3 days may be installed. `npm run check:deps` enforces it; Dependabot `cooldown` waits out the same window.
 - `.npmrc` sets `ignore-scripts=true`. Use `npm ci`, never `npm install`.
 - Actions are pinned to 40-character SHAs. Workflows have no write permissions and reference no secrets.
-- `.claude/hooks/` runs automatically on contributors' machines. Changes there are privileged and gated by `tests/hygiene.test.mjs` plus `CODEOWNERS`.
+- Hooks run automatically on contributors' machines, in all three runtimes. Changes to `.claude/hooks/` or the `hooks` block in `.claude/settings.json` are privileged, gated by `tests/hygiene.test.mjs` plus `CODEOWNERS`.
 
 Threat model: [docs/security.md](docs/security.md).
 
