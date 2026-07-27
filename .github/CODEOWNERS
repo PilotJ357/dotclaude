@@ -1,0 +1,17 @@
+# Paths requiring explicit review.
+#
+# If you fork this, replace the handle below with your own. CODEOWNERS has no
+# effect until "Require review from Code Owners" is enabled in branch
+# protection settings.
+
+* @PilotJ357
+
+# Privileged paths. These execute on contributors' machines or in CI.
+# See docs/security.md.
+/.github/workflows/  @PilotJ357
+/.claude/hooks/      @PilotJ357
+/.claude/settings.json @PilotJ357
+/scripts/            @PilotJ357
+/.npmrc              @PilotJ357
+/package.json        @PilotJ357
+/package-lock.json   @PilotJ357

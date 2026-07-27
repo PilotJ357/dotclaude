@@ -1,0 +1,80 @@
+# Verify-only. This workflow never writes to the repository — the generated
+# `.github/` tree is produced locally by `npm run sync` and checked in.
+# Rationale for every hardening choice here: docs/security.md.
+name: validate
+
+on:
+  push:
+    branches: [main]
+  # `pull_request`, never `pull_request_target` — the latter would run with
+  # repository secrets available while checking out fork-authored code.
+  pull_request:
+
+# Deny everything by default; each job re-grants only what it needs.
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Otherwise GITHUB_TOKEN is left in .git/config where any later
+          # step — including one injected via a compromised dependency —
+          # can read it.
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # `npm ci` installs exactly what the lockfile says. `npm install` may
+      # resolve something else and rewrite it. `.npmrc` sets ignore-scripts.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify dependency tree is minimal
+        run: |
+          count=$(npm ls --all --parseable | tail -n +2 | wc -l | tr -d ' ')
+          echo "dependency tree: $count package(s)"
+          if [ "$count" -gt 2 ]; then
+            echo "::error::Dependency budget exceeded: $count packages (max 2)."
+            echo "See docs/security.md — adding a dependency needs justification."
+            npm ls --all
+            exit 1
+          fi
+
+      # Fails if `npm run sync` would change anything. CI does not regenerate.
+      - name: Verify generated files are current
+        run: npm run sync:check
+
+      - name: Run tests
+        run: npm test
+
+      - name: Audit dependencies
+        run: npm run audit
+
+      # A ref is acceptable only if it is exactly 40 hex characters. Matching
+      # on "looks like a tag" is not enough — a commit SHA can begin with a
+      # digit, so a naive pattern flags the correct thing.
+      - name: Verify every action is pinned to a commit SHA
+        run: |
+          unpinned=$(grep -rhoE '^\s*uses:\s+\S+' .github/workflows/ \
+            | awk '{print $2}' \
+            | grep -vE '@[0-9a-f]{40}$' || true)
+          if [ -n "$unpinned" ]; then
+            echo "::error::Actions must be pinned to a full 40-character commit SHA."
+            echo "$unpinned"
+            exit 1
+          fi
+          echo "all actions are SHA-pinned"

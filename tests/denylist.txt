@@ -1,0 +1,19 @@
+# Terms that must never appear in this repository.
+#
+# This repo is public and general-purpose. It is authored on personal time and
+# must not carry employer-specific, client-specific or otherwise internal
+# content. `tests/hygiene.test.mjs` fails the build if any term below appears
+# in a tracked file.
+#
+# Matching is case-insensitive, substring-based, and applied to whole-file
+# contents. Blank lines and lines starting with `#` are ignored.
+#
+# Add your own: employer name, internal hostnames, project codenames, internal
+# tool names, ticket prefixes, private domains. Keep entries specific enough
+# that they cannot match legitimate prose — a term like "internal" alone would
+# fire constantly and get the check ignored, which is worse than no check.
+
+CONFIDENTIAL
+PROPRIETARY AND CONFIDENTIAL
+INTERNAL USE ONLY
+DO NOT DISTRIBUTE

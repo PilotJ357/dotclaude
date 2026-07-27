@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm ci)",
+      "Bash(npm run sync)",
+      "Bash(npm run sync:check)",
+      "Bash(npm run validate)",
+      "Bash(npm test)",
+      "Bash(npm audit:*)",
+      "Bash(node --test:*)",
+      "Bash(node scripts/sync.mjs:*)",
+      "Bash(node scripts/install.mjs --dry-run:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git symbolic-ref:*)"
+    ],
+    "deny": [
+      "Bash(npm install:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)"
+    ]
+  }
+}
