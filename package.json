@@ -17,6 +17,6 @@
     "install:skills": "node scripts/install.mjs"
   },
   "dependencies": {
-    "js-yaml": "4.3.0"
+    "js-yaml": "5.2.2"
   }
 }
