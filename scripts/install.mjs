@@ -128,8 +128,9 @@ async function listAgents() {
       fileName: entry.name,
       name: data.name ?? entry.name.replace(/\.md$/, ''),
       source,
-      // Copilot understands `prompt`, `tools` and `mcp-servers`; Claude Code
-      // uses `tools` and `model`. Only the two fields both read carry over.
+      // Claude Code uses `tools` and `model`; Copilot's agent frontmatter
+      // overlaps in keys but not in value vocabularies. Only the two fields
+      // both read carry over.
       copilot: stringifyFrontmatter({
         name: data.name ?? entry.name.replace(/\.md$/, ''),
         description: data.description ?? '',

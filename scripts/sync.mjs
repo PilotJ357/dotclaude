@@ -147,8 +147,8 @@ async function buildOutputs() {
 
   for (const agent of agents) {
     const source = rel(agent.file);
-    // Only name/description carry over: Claude Code uses `tools`/`model`,
-    // Copilot uses `prompt`/`tools`/`mcp-servers`. The schemas do not map.
+    // Only name/description carry over: Claude Code uses `tools`/`model`;
+    // Copilot's agent frontmatter overlaps in keys but not value vocabularies.
     const frontmatter = stringifyFrontmatter({
       name: agent.data.name ?? agent.name,
       description: agent.data.description ?? '',

@@ -41,7 +41,7 @@ Strong: `Wraps up a work session: audits docs and test coverage for the session'
 
 ## Cross-runtime bodies
 
-Claude Code can spawn subagents in parallel; Copilot CLI cannot. State both paths rather than assuming one:
+Parallel subagent support varies by runtime and plan — who can do what is tracked in [docs/portability.md](portability.md). State both paths rather than assuming one:
 
 ```markdown
 Run both audits. If your runtime supports parallel subagents, spawn them
@@ -58,7 +58,7 @@ Note that `scripts/install.mjs` copies only `.md`, `.txt`, `.json`, `.yaml` and 
 
 ## Subagents
 
-`.claude/agents/<name>.md`, with `name` matching the filename and a `description`. Claude Code also understands `tools` and `model`; Copilot understands `prompt`, `tools` and `mcp-servers`. Because the schemas do not overlap, `sync` copies only `name` and `description` into the `.github/agents/` stub and points the body at the canonical file.
+`.claude/agents/<name>.md`, with `name` matching the filename and a `description`. Claude Code also understands `tools` and `model`; Copilot's agent frontmatter overlaps in keys but not in value vocabularies, and its prompt is the markdown body, not a field. Only `name` and `description` carry over, so `sync` rewrites the frontmatter and copies the body in full into the `.github/agents/` stub.
 
 Subagents are less portable than skills. Use one only when isolated context is genuinely required.
 

@@ -189,8 +189,8 @@ describe('generated tree', () => {
       const content = await readFile(path.join(GH_AGENTS_DIR, name), 'utf8');
       const { data } = parseFrontmatter(content.replace(/^<!--[^\n]*-->\n/, ''));
 
-      // Claude Code's `tools`/`model` mean nothing to Copilot, which expects
-      // `prompt`/`tools`/`mcp-servers`. Only the shared fields carry over.
+      // Claude Code's `tools`/`model` and Copilot's agent frontmatter overlap
+      // in keys but not value vocabularies. Only the shared fields carry over.
       assert.deepEqual(
         Object.keys(data).sort(),
         ['description', 'name'],

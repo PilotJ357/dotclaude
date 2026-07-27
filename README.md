@@ -11,7 +11,7 @@ Copilot loads agent skills from `.github/skills/`, `.claude/skills/` or `.agents
 | Agent skills | `.claude/skills/` | `.github/skills/`, `.claude/skills/`, `.agents/skills/` | Yes, natively |
 | Hooks | `.claude/settings.json` | `.claude/settings.json`, `.github/hooks/*.json`, `~/.copilot/hooks/` | Yes, natively |
 | Subagents | `.claude/agents/` | `.claude/agents/` in VS Code; `.github/agents/*.agent.md` and `~/.copilot/agents/` for the CLI | VS Code only |
-| Instructions | `CLAUDE.md` | `AGENTS.md` + `CLAUDE.md` (CLI); `.github/copilot-instructions.md` (VS Code) | Partial |
+| Instructions | `CLAUDE.md` | `AGENTS.md` + `CLAUDE.md` (CLI); `.github/copilot-instructions.md`, `AGENTS.md`, `CLAUDE.md` (VS Code) | Partial |
 | Prompt files | `.claude/commands/` | `.github/prompts/` (VS Code and Visual Studio, not the CLI) | No |
 
 Three surfaces are read natively by both tool families: skills, hooks, and — in VS Code — subagents. Everything else is **generated** into `.github/` with the full body and runtime-appropriate frontmatter, so it works without indirection. CI fails if a generated file is stale.

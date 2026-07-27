@@ -20,7 +20,7 @@ To stay portable:
 
 - **Use the `command` field**, not `bash` or `powershell`. Those are Copilot and VS Code extensions; `command` is the cross-platform field every runtime understands.
 - **Use PascalCase event names** (`PreToolUse`, `SessionStart`, `Stop`). Copilot CLI's native form is lowerCamelCase but it accepts PascalCase from Claude-format files, and VS Code converts camelCase to PascalCase.
-- Copilot exposes events with no Claude Code equivalent — `errorOccurred`, `notification`, `permissionRequest`, `userPromptTransformed`, `subagentStart`, `postToolUseFailure`. A hook using one is Copilot-only by definition.
+- Copilot events `notification`, `permissionRequest`, `preCompact`, `subagentStart` and `postToolUseFailure` map to Claude Code's `Notification`, `PermissionRequest`, `PreCompact`, `SubagentStart` and `PostToolUseFailure` ([Claude Code hooks reference](https://code.claude.com/docs/en/hooks)). Only `errorOccurred` and `userPromptTransformed` remain Copilot-only — Claude Code's nearest events, `StopFailure` and `UserPromptExpansion`, have different semantics. A hook using either is Copilot-only by definition.
 
 ## Why this directory is reviewed differently
 

@@ -66,6 +66,6 @@ No version published within the last 3 days may be installed. Dependabot waits o
 
 ## Conventions
 
-Lowercase kebab-case filenames, except `SKILL.md`, `README.md` and root metadata files. Markdown only under the skill, agent and generated directories. No absolute home paths and no employer-specific content — `tests/denylist.txt` holds the term list.
+Lowercase kebab-case filenames, except `SKILL.md`, `README.md` and root metadata files. Non-markdown files live only where a runtime or platform requires them (`.claude/settings.json`, workflows, registries). No absolute home paths and no employer-specific content — `tests/denylist.txt` holds the term list.
 
-Skill bodies must work in both runtimes. Claude Code can spawn parallel subagents; Copilot CLI cannot. State what to do in each case rather than assuming one.
+Skill bodies must work in both runtimes. Parallel subagent support varies by runtime — state what to do in each case rather than assuming it. Who supports what: [docs/portability.md](docs/portability.md).

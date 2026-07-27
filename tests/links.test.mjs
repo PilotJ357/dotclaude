@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 
-import { REPO_ROOT, SKILLS_DIR, AGENTS_DIR } from '../scripts/lib/paths.mjs';
+import { REPO_ROOT, SKILLS_DIR, AGENTS_DIR, HOOKS_DIR } from '../scripts/lib/paths.mjs';
 
 /**
  * Relative markdown links must resolve on disk. A skill that references a
@@ -32,6 +32,12 @@ async function markdownFiles() {
   for (const entry of await readdir(AGENTS_DIR, { withFileTypes: true })) {
     if (entry.isFile() && entry.name.endsWith('.md')) {
       files.push(path.join(AGENTS_DIR, entry.name));
+    }
+  }
+
+  for (const entry of await readdir(HOOKS_DIR, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.md')) {
+      files.push(path.join(HOOKS_DIR, entry.name));
     }
   }
 
