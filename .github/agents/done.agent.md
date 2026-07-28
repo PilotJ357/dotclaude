@@ -66,8 +66,7 @@ Only if every gate passed and `--no-pr` was not given.
 
 1. **Branch.** If on the base branch, create one — `<type>/<short-description>`, kebab-case, derived from the actual change.
 2. **Commit.** Stage the session's changes and commit with a message describing what changed and why. Never stage secrets, `node_modules/`, or `.claude/settings.local.json`.
-3. **Summarize and confirm.** Show the user the branch name, file list, commit message and target branch. **Ask for confirmation before pushing** — an explicit yes, even though opening a pull request is this skill's default.
-4. **Push and open.** After confirmation, push and run `gh pr create --base <base>` (add `--draft` if requested). The body states what changed, why, and how it was verified.
+3. **Push and open.** Push and run `gh pr create --base <base>` (add `--draft` if requested). The body states what changed, why, and how it was verified. No confirmation prompt — invoking `/done` is the user's authorization to push and open the pull request once every gate has passed.
 
 Use the already-authenticated `gh` CLI. Never read, print, log or write an authentication token.
 
