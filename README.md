@@ -68,6 +68,8 @@ Hooks are shell that agent runtimes run automatically, which is why `--with-hook
 
 | Skill | Purpose |
 |---|---|
+| [`adhd`](.claude/skills/adhd/SKILL.md) | Output style for a reader with ADHD: lead with the next action, number multi-step work, restate state each turn. Toggled on with `/adhd`, off with "stop adhd mode". |
+| [`bruh`](.claude/skills/bruh/SKILL.md) | Restates the last message in plain language, no jargon. |
 | [`done`](.claude/skills/done/SKILL.md) | End-of-session gate. Audits docs and test coverage against the session's changes, runs validation, opens a PR only if all gates pass. |
 
 ## Development
