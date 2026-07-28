@@ -12,7 +12,7 @@ Edit `.claude/` or this file → run `npm run sync`. CI verifies freshness, fail
 
 **Do not state what a runtime does or does not support — not here, not in a skill, not in a subagent.** Every claim lives in [docs/portability.md](docs/portability.md), next to source link.
 
-Why: file loaded as instructions every turn. Wrong claim no sit inert — read back as authority, repeated into new prose, passed to subagents as premise. Happened four times in this repo: hooks, user-scope agent directories, subagent spawning, `.claude/agents` support. Each written from inference, echoed until someone checked.
+Why: file loaded as instructions every turn. Wrong claim no sit inert — read back as authority, repeated into prose, passed to subagents as premise. Burned four times already (hooks, user-scope agent dirs, subagent spawning, `.claude/agents`); each written from inference, echoed until checked.
 
 Need compatibility fact → read `docs/portability.md`. Learn new one → put it there with source.
 

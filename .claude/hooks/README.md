@@ -8,19 +8,7 @@ No hooks ship in this revision.
 
 Hooks are configured in `.claude/settings.json`, which all three runtimes read. Scripts referenced from it live in this directory.
 
-| Scope | Claude Code | Copilot CLI | VS Code |
-|---|---|---|---|
-| Repository, cross-tool | `.claude/settings.json`, `.claude/settings.local.json` | same | same |
-| Repository, native | — | `.github/hooks/*.json`, `.github/copilot/settings.json` | `.github/hooks/*.json` |
-| User | `~/.claude/settings.json` | `~/.copilot/hooks/` | `~/.copilot/hooks/`, `~/.claude/settings.json` |
-
-GitHub's [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) states that Copilot reads "cross-tool `.claude/settings.json` and `.claude/settings.local.json` files in the repository". [VS Code](https://code.visualstudio.com/docs/agent-customization/hooks) parses the same format.
-
-To stay portable:
-
-- **Use the `command` field**, not `bash` or `powershell`. Those are Copilot and VS Code extensions; `command` is the cross-platform field every runtime understands.
-- **Use PascalCase event names** (`PreToolUse`, `SessionStart`, `Stop`). Copilot CLI's native form is lowerCamelCase but it accepts PascalCase from Claude-format files, and VS Code converts camelCase to PascalCase.
-- Copilot events `notification`, `permissionRequest`, `preCompact`, `subagentStart` and `postToolUseFailure` map to Claude Code's `Notification`, `PermissionRequest`, `PreCompact`, `SubagentStart` and `PostToolUseFailure` ([Claude Code hooks reference](https://code.claude.com/docs/en/hooks)). Only `errorOccurred` and `userPromptTransformed` remain Copilot-only — Claude Code's nearest events, `StopFailure` and `UserPromptExpansion`, have different semantics. A hook using either is Copilot-only by definition.
+Locations, file formats, event-name casing and which events have cross-runtime equivalents are stated once, with sources, in [docs/portability.md](../../docs/portability.md). Two authoring rules fall out of them: use the `command` field (not `bash` or `powershell`), and use PascalCase event names (`PreToolUse`, `SessionStart`, `Stop`).
 
 ## Why this directory is reviewed differently
 

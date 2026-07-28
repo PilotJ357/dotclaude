@@ -4,9 +4,11 @@ The single place in this repo where runtime compatibility is stated. Every claim
 
 ## Support matrix
 
+*Verified against the linked sources, July 2026.*
+
 | Primitive | Claude Code | Copilot CLI | Copilot in VS Code |
 |---|---|---|---|
-| **Agent skills** | `.claude/skills/<name>/SKILL.md`, `~/.claude/skills/` | `.github/skills/`, **`.claude/skills/`**, `.agents/skills/`; `~/.copilot/skills/`, `~/.agents/skills/` | same as CLI, plus `~/.claude/skills/` |
+| **Agent skills** | `.claude/skills/<name>/SKILL.md`, `~/.claude/skills/` | `.github/skills/`, **`.claude/skills/`**, `.agents/skills/`; `~/.copilot/skills/`, `~/.agents/skills/` | `.github/skills/`, **`.claude/skills/`**; `~/.copilot/skills/`, `~/.claude/skills/` (defaults of `chat.agentSkillsLocations`) |
 | **Hooks** | `.claude/settings.json`, `.claude/settings.local.json`, `~/.claude/settings.json` | **`.claude/settings.json`**, `.claude/settings.local.json`, `.github/hooks/*.json`, `.github/copilot/settings.json`, `.github/copilot/settings.local.json`, `~/.copilot/settings.json`, `~/.copilot/hooks/` | `.github/hooks/*.json`, **`.claude/settings.json`**, `.claude/settings.local.json`, `~/.claude/settings.json`, `~/.copilot/hooks/` |
 | **Subagents** | `.claude/agents/*.md`, `~/.claude/agents/` | `.github/agents/*.agent.md`, `~/.copilot/agents/*.agent.md`, org and enterprise `/agents/` | `.github/agents/` (any `.md`), **`.claude/agents/`**, `~/.copilot/agents/` |
 | **Spawning subagents** | Yes | Yes — `/agent`, automatic delegation, `/fleet` for parallel execution, concurrency and depth limits in `/settings` | Yes |
@@ -16,7 +18,7 @@ The single place in this repo where runtime compatibility is stated. Every claim
 
 Bold marks a path both tool families read natively.
 
-Sources: [customization cheat sheet](https://docs.github.com/en/copilot/reference/customization-cheat-sheet) · [agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) · [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) · [create custom agents for CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli) · [invoke custom agents](https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/invoke-custom-agents) · [custom agents configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration) · [VS Code custom agents](https://code.visualstudio.com/docs/agent-customization/custom-agents) · [VS Code hooks](https://code.visualstudio.com/docs/agent-customization/hooks) · [VS Code custom instructions](https://code.visualstudio.com/docs/agent-customization/custom-instructions) · [VS Code agent skills](https://code.visualstudio.com/docs/agent-customization/agent-skills) · [VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers) · [Copilot CLI custom instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions) · [Claude Code hooks reference](https://code.claude.com/docs/en/hooks)
+Sources: [customization cheat sheet](https://docs.github.com/en/copilot/reference/customization-cheat-sheet) · [agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) · [hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference) · [create custom agents for CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli) · [invoke custom agents](https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli/invoke-custom-agents) · [custom agents configuration](https://docs.github.com/en/copilot/reference/custom-agents-configuration) · [VS Code custom agents](https://code.visualstudio.com/docs/agent-customization/custom-agents) · [VS Code hooks](https://code.visualstudio.com/docs/agent-customization/hooks) · [VS Code custom instructions](https://code.visualstudio.com/docs/agent-customization/custom-instructions) · [VS Code agent skills](https://code.visualstudio.com/docs/agent-customization/agent-skills) · [VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers) · [VS Code AI settings reference](https://code.visualstudio.com/docs/agents/reference/ai-settings) · [Copilot CLI custom instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions) · [Claude Code hooks reference](https://code.claude.com/docs/en/hooks)
 
 ## Three shared surfaces
 
@@ -27,6 +29,8 @@ Sources: [customization cheat sheet](https://docs.github.com/en/copilot/referenc
 **`.claude/agents/`** — VS Code documents that it "also detects `.md` files in the `.claude/agents` folder, following the Claude sub-agents format. This enables you to use the same agent definitions across VS Code and Claude Code." Copilot CLI's documented agent sources are user, repository, organization and enterprise scopes — `.claude/agents/` is not among them (checked against the CLI agent pages linked above, July 2026) — so the generated `.github/agents/` stub exists for the CLI and for github.com.
 
 ## Details that bite
+
+*Verified against the linked sources, July 2026.*
 
 **Hooks.** Use the `command` field, not `bash` or `powershell` — those are Copilot and VS Code extensions. Use PascalCase event names (`SessionStart`, `PreToolUse`, `Stop`); Copilot CLI's native form is lowerCamelCase but it accepts PascalCase from Claude-format files. Copilot events that once had no Claude Code equivalent — `notification`, `permissionRequest`, `preCompact`, `subagentStart`, `postToolUseFailure` — now map to `Notification`, `PermissionRequest`, `PreCompact`, `SubagentStart` and `PostToolUseFailure` in the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks). Only `errorOccurred` and `userPromptTransformed` remain Copilot-only; Claude Code's nearest events, `StopFailure` and `UserPromptExpansion`, have different semantics. Copilot loads hooks from policy, then user, then project, then plugins, and runs all matching hooks; policy hooks cannot be disabled by `disableAllHooks`.
 
@@ -57,7 +61,8 @@ Generated files carry the **full body**, not a pointer back to `.claude/`. A poi
 | `.github/prompts/<name>.prompt.md` | `.claude/skills/<name>/SKILL.md` | `description`, `agent` |
 | `.github/agents/<name>.agent.md` | `.claude/skills/<name>/SKILL.md` | `name`, `description` |
 | `.github/agents/<name>.agent.md` | `.claude/agents/<name>.md` | `name`, `description` |
-| `.github/copilot-instructions.md` | `AGENTS.md` | none — full copy, relative links reparented |
+
+No `.github/copilot-instructions.md` is generated: Copilot CLI reads `AGENTS.md` natively, and VS Code reads it by default (`chat.useAgentsMdFile`, default `true`), so copying the file would be a second source of truth for no consumer.
 
 Each skill is emitted **twice**: as a prompt file, which gives VS Code and Visual Studio users `/<name>`, and as an agent, which gives Copilot CLI users `/agent <name>`. The CLI has no prompt-file support, so without the agent form a skill would only be reachable there by description matching. Because both skills and subagents land in `.github/agents/`, their names must be distinct; `sync.mjs` fails with a clear error on collision.
 

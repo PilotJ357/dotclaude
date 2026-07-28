@@ -97,11 +97,7 @@ Hooks are the sharpest edge, so the policy exists before the first hook does. `.
 
 The blast radius is wider than Claude Code alone: Copilot CLI and VS Code both read `.claude/settings.json`, so a hook committed here runs in all three runtimes on anyone who adopts the config.
 
-`tests/hygiene.test.mjs` scans non-markdown files in that directory and rejects network fetches piped into a shell, `eval` on dynamic content, `sudo`, and absolute paths into system directories (the shebang line is exempt). Markdown there is documentation and is not scanned.
-
-These catch known-bad shapes. They do not replace reading the diff, and passing them is not evidence a hook is safe.
-
-Details: [.claude/hooks/README.md](../.claude/hooks/README.md).
+What `tests/hygiene.test.mjs` rejects and the rules for adding a hook: [.claude/hooks/README.md](../.claude/hooks/README.md). The scan catches known-bad shapes only — passing it is not evidence a hook is safe.
 
 ## Installer
 
@@ -114,6 +110,7 @@ Details: [.claude/hooks/README.md](../.claude/hooks/README.md).
 - rejects skill directory names that are not plain kebab-case;
 - defaults to copying, since symlinks need Developer Mode or admin rights on Windows;
 - prints the full plan under `--dry-run` before touching the filesystem;
+- `--uninstall` removes only paths from this repository's own inventory, each resolved within the same two roots;
 - installs hooks only under `--with-hooks`, after listing the files.
 
 Guards are tested directly in `tests/install.test.mjs`, including traversal, absolute paths and executable extensions.

@@ -9,7 +9,6 @@ import {
   REPO_ROOT,
   GH_PROMPTS_DIR,
   GH_AGENTS_DIR,
-  GH_INSTRUCTIONS,
   SKILLS_DIR,
   AGENTS_DIR,
   GENERATED_MARKER,
@@ -80,7 +79,7 @@ describe('generated tree', () => {
   });
 
   test('all generated files carry the generated marker', async () => {
-    const files = [GH_INSTRUCTIONS];
+    const files = [];
     for (const dir of [GH_PROMPTS_DIR, GH_AGENTS_DIR]) {
       for (const name of await readdir(dir)) files.push(path.join(dir, name));
     }
@@ -205,17 +204,5 @@ describe('generated tree', () => {
         assert.ok(name.endsWith('.md'), `unexpected non-markdown file: ${name}`);
       }
     }
-  });
-
-  test('copilot-instructions reparents relative links', async () => {
-    const content = await readFile(GH_INSTRUCTIONS, 'utf8');
-    // AGENTS.md sits at the repo root and links to `docs/...`; the copy lives
-    // one level deeper, so those links must have been rewritten.
-    assert.doesNotMatch(
-      content,
-      /\]\(docs\//,
-      'links to docs/ must be reparented to ../docs/',
-    );
-    assert.match(content, /\]\(\.\.\/docs\//);
   });
 });

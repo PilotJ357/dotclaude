@@ -140,6 +140,40 @@ describe('installer output plan', () => {
     const out = await plan();
     assert.doesNotMatch(out, /\/Users\/|\/home\//);
   });
+
+  test('--uninstall plans removals in both runtimes', async () => {
+    const out = await plan('--uninstall');
+    // Verb varies with what the host has installed; the targets must not.
+    assert.match(out, /~\/\.claude\/skills\/done/);
+    assert.match(out, /~\/\.copilot\/skills\/done/);
+    assert.match(out, /~\/\.claude\/agents\/docs-auditor\.md/);
+    assert.match(out, /~\/\.copilot\/agents\/docs-auditor\.agent\.md/);
+  });
+
+  test('--uninstall respects --no-agents and target restrictions', async () => {
+    const noAgents = await plan('--uninstall', '--no-agents');
+    assert.doesNotMatch(noAgents, /agents\//);
+
+    const claude = await plan('--uninstall', '--claude-only');
+    assert.match(claude, /~\/\.claude\/skills\//);
+    assert.doesNotMatch(claude, /\.copilot\//);
+  });
+
+  test('--uninstall rejects --force and --link', async () => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+
+    for (const flag of ['--force', '--link']) {
+      await assert.rejects(
+        promisify(execFile)(
+          process.execPath,
+          ['scripts/install.mjs', '--uninstall', flag],
+          { cwd: REPO_ROOT },
+        ),
+        /does not combine/,
+      );
+    }
+  });
 });
 
 describe('agent instructions stay accurate', () => {

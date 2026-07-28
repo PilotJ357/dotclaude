@@ -1,11 +1,8 @@
 # Keeps the SHA pins in .github/workflows/ and the npm lockfile under review
 # rather than letting them rot. Pinning without updates is its own risk.
 #
-# `cooldown` stops Dependabot proposing a version until it has been public for
-# a set number of days. A compromised package is usually caught and unpublished
-# within hours to days, so waiting removes the window in which a malicious
-# release would be picked up. scripts/check-dep-age.mjs enforces the same floor
-# against the lockfile, which also catches a manual `npm install`.
+# `cooldown` stops Dependabot proposing versions younger than the floor.
+# Rationale, and the lockfile enforcement: docs/security.md.
 version: 2
 
 updates:

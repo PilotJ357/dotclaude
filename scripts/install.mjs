@@ -35,6 +35,7 @@ Usage: node scripts/install.mjs [options]
   --dry-run        Print exactly what would be written, change nothing
   --link           Symlink instead of copy (needs Developer Mode on Windows)
   --force          Overwrite skills that are already installed
+  --uninstall      Remove installed skills, agents (and hooks with --with-hooks)
   --no-agents      Skip subagents (~/.claude/agents and ~/.copilot/agents)
   --with-hooks     Also install .claude/hooks/ — these EXECUTE on your machine
   --claude-only    Install to ~/.claude only
@@ -44,7 +45,7 @@ Usage: node scripts/install.mjs [options]
 
 function parseArgs(argv) {
   const known = new Set([
-    '--dry-run', '--link', '--force', '--with-hooks', '--no-agents',
+    '--dry-run', '--link', '--force', '--uninstall', '--with-hooks', '--no-agents',
     '--claude-only', '--copilot-only', '-h', '--help',
   ]);
 
@@ -64,6 +65,10 @@ function parseArgs(argv) {
     console.error('--claude-only and --copilot-only are mutually exclusive');
     process.exit(2);
   }
+  if (has('--uninstall') && (has('--link') || has('--force'))) {
+    console.error('--uninstall does not combine with --link or --force');
+    process.exit(2);
+  }
 
   const targets = [];
   if (!has('--copilot-only')) targets.push(TARGETS.claude);
@@ -73,6 +78,7 @@ function parseArgs(argv) {
     dryRun: has('--dry-run'),
     link: has('--link'),
     force: has('--force'),
+    uninstall: has('--uninstall'),
     withHooks: has('--with-hooks'),
     agents: !has('--no-agents'),
     targets,
@@ -218,6 +224,54 @@ async function collectHookFiles() {
   return files.filter((file) => file !== 'README.md');
 }
 
+/**
+ * Every removal this run would perform, each target verified in-bounds and
+ * each name taken from this repository's own inventory — never from what
+ * happens to be present in the target directory.
+ */
+async function buildUninstallPlan(skills, options) {
+  const candidates = [];
+
+  for (const target of options.targets) {
+    for (const skill of skills) {
+      candidates.push(resolveWithin(path.join(target, 'skills'), skill.name));
+    }
+  }
+
+  if (options.agents) {
+    for (const agent of await listAgents()) {
+      if (options.targets.includes(TARGETS.claude)) {
+        candidates.push(
+          resolveWithin(path.join(TARGETS.claude, 'agents'), agent.fileName),
+        );
+      }
+      if (options.targets.includes(TARGETS.copilot)) {
+        candidates.push(
+          resolveWithin(path.join(TARGETS.copilot, 'agents'), `${agent.name}.agent.md`),
+        );
+      }
+    }
+  }
+
+  if (options.withHooks) {
+    for (const file of await collectHookFiles()) {
+      for (const target of options.targets.filter((t) => t === TARGETS.claude)) {
+        candidates.push(resolveWithin(path.join(target, 'hooks'), file));
+      }
+    }
+  }
+
+  const actions = [];
+  for (const destination of candidates) {
+    if (await exists(destination)) {
+      actions.push({ kind: 'remove', destination });
+    } else {
+      actions.push({ kind: 'skip', destination, reason: 'not installed' });
+    }
+  }
+  return actions;
+}
+
 async function warnAboutHooks(options) {
   const files = await collectHookFiles();
 
@@ -260,6 +314,12 @@ async function apply(actions, options) {
       continue;
     }
 
+    if (action.kind === 'remove') {
+      await rm(action.destination, { recursive: true, force: true });
+      written += 1;
+      continue;
+    }
+
     await mkdir(path.dirname(action.destination), { recursive: true });
 
     if (action.kind === 'link') {
@@ -292,8 +352,10 @@ async function main() {
   }
 
   console.log(
-    `${options.dryRun ? 'DRY RUN — nothing will be written\n\n' : ''}` +
-      `Installing ${skills.length} skill(s) from ${rel(SKILLS_DIR)}:`,
+    (options.dryRun ? 'DRY RUN — nothing will be written\n\n' : '') +
+      (options.uninstall
+        ? `Removing installed copies of ${skills.length} skill(s):`
+        : `Installing ${skills.length} skill(s) from ${rel(SKILLS_DIR)}:`),
   );
   for (const skill of skills) {
     console.log(`  ${skill.name} (${skill.files.length} file(s))`);
@@ -301,17 +363,21 @@ async function main() {
   }
   console.log(`\nTargets: ${options.targets.map(display).join(', ')}\n`);
 
-  const actions = await buildPlan(skills, options);
+  const actions = options.uninstall
+    ? await buildUninstallPlan(skills, options)
+    : await buildPlan(skills, options);
 
-  if (options.agents) {
+  if (!options.uninstall && options.agents) {
     for (const agent of await listAgents()) {
       actions.push(...agentActions(agent, options.targets));
     }
   }
 
-  if (options.withHooks) actions.push(...(await warnAboutHooks(options)));
+  if (!options.uninstall && options.withHooks) {
+    actions.push(...(await warnAboutHooks(options)));
+  }
 
-  const VERBS = { skip: 'skip', link: 'link', write: 'write', copy: 'copy' };
+  const VERBS = { skip: 'skip', link: 'link', write: 'write', copy: 'copy', remove: 'remove' };
   for (const action of actions) {
     const suffix = action.kind === 'skip' ? ` — ${action.reason}` : '';
     console.log(`  ${VERBS[action.kind].padEnd(5)}    ${display(action.destination)}${suffix}`);
@@ -320,14 +386,19 @@ async function main() {
   const skipped = actions.filter((a) => a.kind === 'skip').length;
   const written = await apply(actions, options);
 
+  const pastTense = options.uninstall ? 'Removed' : 'Wrote';
+  const futureTense = options.uninstall ? 'Would remove' : 'Would write';
+  const skipNote = options.uninstall
+    ? `, skipped ${skipped} not installed`
+    : `, skipped ${skipped} existing skill(s) — use --force to overwrite`;
   console.log(
-    `\n${options.dryRun ? 'Would write' : 'Wrote'} ${written} file(s)` +
-      `${skipped > 0 ? `, skipped ${skipped} existing skill(s) — use --force to overwrite` : ''}.`,
+    `\n${options.dryRun ? futureTense : pastTense} ${written} item(s)` +
+      `${skipped > 0 ? skipNote : ''}.`,
   );
 
   if (options.dryRun) {
     console.log('\nRe-run without --dry-run to apply.');
-  } else if (!options.withHooks) {
+  } else if (!options.uninstall && !options.withHooks) {
     console.log('\nHooks were not installed. Pass --with-hooks to include them.');
   }
 }

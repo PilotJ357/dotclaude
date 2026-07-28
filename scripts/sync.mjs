@@ -16,10 +16,8 @@ import { parseFrontmatter, stringifyFrontmatter } from './lib/frontmatter.mjs';
 import {
   SKILLS_DIR,
   AGENTS_DIR,
-  AGENTS_MD,
   GH_PROMPTS_DIR,
   GH_AGENTS_DIR,
-  GH_INSTRUCTIONS,
   GENERATED_MARKER,
   generatedHeader,
   rel,
@@ -43,18 +41,6 @@ async function readIfExists(file) {
     if (error.code === 'ENOENT') return null;
     throw error;
   }
-}
-
-/**
- * Rewrite repo-root-relative markdown links so they still resolve one
- * directory deeper. AGENTS.md links to `docs/portability.md`; the copy at
- * `.github/copilot-instructions.md` needs `../docs/portability.md`.
- */
-function reparentLinks(markdown) {
-  return markdown.replace(
-    /\]\((?!https?:|mailto:|#|\/|\.\.?\/)([^)\s]+)/g,
-    '](../$1',
-  );
 }
 
 /** Collect every skill: { name, dir, data }. */
@@ -161,16 +147,6 @@ async function buildOutputs() {
     outputs.set(
       path.join(GH_AGENTS_DIR, `${agent.name}.agent.md`),
       `${generatedHeader(source)}${frontmatter}\n${agent.body.trimStart()}`,
-    );
-  }
-
-  // Full copy, not a pointer: Copilot in VS Code reads this file directly and
-  // will not follow a reference out of it.
-  const agentsMd = await readIfExists(AGENTS_MD);
-  if (agentsMd !== null) {
-    outputs.set(
-      GH_INSTRUCTIONS,
-      `${generatedHeader('AGENTS.md')}\n${reparentLinks(agentsMd)}`,
     );
   }
 

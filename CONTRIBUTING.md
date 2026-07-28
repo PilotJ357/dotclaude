@@ -2,7 +2,7 @@
 
 ## Setup
 
-Node 22+ (`.nvmrc` pins it).
+Node 24+ (`.nvmrc` pins it).
 
 ```bash
 npm ci
@@ -46,9 +46,7 @@ Do not add `.claude/commands/`. Claude Code exposes skills as `/<name>` already,
 
 ## Dependencies
 
-`npm ls --all` should show `js-yaml` and `argparse`, nothing else. Adding a dependency requires a PR justification explaining why the standard library and existing dependency cannot cover it. `node:test` is built in — do not add a test framework.
-
-No version published within the last 3 days may be installed. Dependabot waits out the same window before proposing one, and `npm run check:deps` enforces it against the lockfile. If you hit it, wait or pin to an older version; `ALLOW_FRESH_DEPS='name@version'` exists for security patches that cannot wait. Rationale: [docs/security.md](docs/security.md).
+Budget two packages: `js-yaml` and `argparse`. `node:test` is built in — do not add a test framework. No version published within the last 3 days may be installed; `ALLOW_FRESH_DEPS='name@version'` covers urgent security patches. Rationale and enforcement: [docs/security.md](docs/security.md).
 
 ## What CI enforces
 

@@ -1,26 +1,19 @@
 #!/usr/bin/env node
 /**
- * Refuse dependency versions published within the last N days.
+ * Refuse dependency versions published within the last N days. Enforces the
+ * floor against the lockfile — Dependabot cooldown only stops proposals, and
+ * cannot see a manual `npm install`. Rationale: docs/security.md.
  *
- *   node scripts/check-dep-age.mjs             warn on failure to reach the registry
+ *   node scripts/check-dep-age.mjs             warn if the registry is unreachable
  *   node scripts/check-dep-age.mjs --strict    treat registry failure as an error
- *
- * A compromised package is typically caught and unpublished within hours to
- * days of release. Declining to install anything newer than the threshold
- * removes the window in which that version would be picked up automatically.
- *
- * Dependabot's `cooldown` setting stops it from *proposing* such versions.
- * This check is the enforcement: it also catches a manual `npm install`.
  *
  * Options:
  *   --min-age-days=N   Override the threshold (env: MIN_DEP_AGE_DAYS)
  *   --strict           Fail if the registry cannot be reached
  *   --json             Machine-readable output
  *
- * Deliberate exceptions, for an urgent security patch that must land before
- * it has aged, go in ALLOW_FRESH_DEPS as exact name@version pairs:
- *
- *   ALLOW_FRESH_DEPS='js-yaml@4.3.1' npm run check:deps
+ * Urgent security patches that must land unaged: ALLOW_FRESH_DEPS takes exact
+ * name@version pairs — ALLOW_FRESH_DEPS='js-yaml@4.3.1' npm run check:deps
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
