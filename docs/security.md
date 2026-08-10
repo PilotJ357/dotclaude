@@ -19,7 +19,7 @@ Budget is two packages. `npm ls --all` should show `js-yaml` and its child `argp
 | Choice | Reason |
 |---|---|
 | `js-yaml@4` as the only direct dependency | v4 dropped `esprima`; its one child `argparse@2` is a pure-JavaScript rewrite with no dependencies and no install scripts. Parses with the default safe schema — `yaml.load` will not construct arbitrary types. Do not substitute a custom schema. |
-| Pinned to the 4.x line | 5.x removed the default export, making it a code change rather than a bump, and offers no dependency or size reduction. The 4.x line is still maintained — 4.3.0 shipped after 5.0.0 — so patches continue to arrive. `dependabot.yml` ignores the major only; minor and patch updates still open PRs. |
+| Pinned to the 4.x line | 5.x removed the default export, making it a code change rather than a bump, and offers no dependency or size reduction. The 4.x line is still maintained — the 4.3.1 security patch shipped after 5.0.0 — so patches continue to arrive. `dependabot.yml` ignores the major only; minor and patch updates still open PRs. |
 | `node:test` instead of a framework | Vitest pulls esbuild, rollup and vite — over a hundred packages plus platform binaries fetched at install — to validate a handful of markdown files. |
 | No frontmatter library | `gray-matter` pulls `section-matter`, `strip-bom-string` and `kind-of`. Splitting frontmatter is a regex; parsing is `js-yaml`. |
 
@@ -57,7 +57,9 @@ This does not defend against a compromise that stays undetected past the window,
 | `engine-strict=true` | Refuse installation on an unsupported Node. |
 | `audit-level=high` | `npm audit` fails on high and critical. |
 
-Use `npm ci`, never `npm install`. `ci` installs exactly what the lockfile specifies; `install` can resolve differently and rewrite it.
+Use `npm ci`, never `npm install`. `ci` installs exactly what the lockfile specifies; `install` can resolve differently and rewrite it. `Bash(npm install:*)` is in the `deny` list, and a deny rule cannot be answered with a prompt, so nothing running in this repository can rewrite the lockfile by resolution.
+
+Changing a pinned version therefore means editing `package.json` and `package-lock.json` together — `version`, `resolved` and `integrity` copied from the registry — and then proving it with a clean `npm ci`. That is a verification, not a formality: `npm ci` checks the `integrity` hash against the downloaded tarball and fails if they disagree, so a mistyped or invented hash cannot pass.
 
 ## Workflow hardening
 
