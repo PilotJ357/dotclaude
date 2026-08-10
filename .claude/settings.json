@@ -14,7 +14,23 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
-      "Bash(git symbolic-ref:*)"
+      "Bash(git symbolic-ref:*)",
+      "Bash(git branch --show-current)",
+      "Bash(git fetch:*)",
+      "Bash(git checkout -b:*)",
+      "Bash(git switch -c:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(git push -u origin:*)",
+      "Bash(gh pr create:*)"
+    ],
+    "ask": [
+      "Bash(git push * --force*)",
+      "Bash(git push * -f:*)",
+      "Bash(git push * --delete*)",
+      "Bash(git push * -d:*)",
+      "Bash(git push * +*)"
     ],
     "deny": [
       "Bash(npm install:*)",
