@@ -37,6 +37,7 @@ Repo distributes content that executes on other machines.
 - `.npmrc` sets `ignore-scripts=true`. `npm ci`, never `npm install`.
 - Actions pinned to 40-char SHAs. Workflows: no write permissions, no secrets referenced.
 - Hooks run automatically on contributors' machines. Changes to `.claude/hooks/` or `hooks` block in `.claude/settings.json` privileged — gated by `tests/hygiene.test.mjs` + `CODEOWNERS`.
+- `permissions` block in `.claude/settings.json` equally privileged: it pre-approves commands that then run with no dialog. Gated by `tests/settings.test.mjs` + `CODEOWNERS`. Widening it needs the same justification as a hook.
 
 Threat model: [docs/security.md](docs/security.md).
 
@@ -46,4 +47,6 @@ Lowercase kebab-case filenames except `SKILL.md`, `README.md`, root metadata. No
 
 ## Finishing a session
 
-Run `/done`. Audits docs + test coverage against session changes, runs `npm run validate`, opens pull request only if every gate passes.
+Run `/done`. Audits docs + test coverage against session changes, runs `npm run validate`, then commits, pushes and opens the pull request — no confirmation prompt — if every gate passes. Invoking it is the authorization; the gates are the check.
+
+Commands it issues are allowlisted in `.claude/settings.json`. An approval dialog during a wrap-up means a rule is missing, not that the skill is asking — permission rules are not something a skill body can override. Rule scope and reasoning: [docs/security.md](docs/security.md).

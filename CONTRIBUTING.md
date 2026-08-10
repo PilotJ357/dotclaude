@@ -32,7 +32,7 @@ CI verifies freshness and fails on drift. It does not regenerate.
 | `npm run check:deps` | Fail if any dependency was published in the last 3 days |
 | `npm run validate` | `sync:check` + tests + `npm audit` + `check:deps` |
 
-`/done` runs all of it plus a docs and coverage audit, then opens the PR.
+`/done` runs all of it plus a docs and coverage audit, then commits, pushes and opens the PR without prompting.
 
 ## Adding things
 
@@ -56,6 +56,7 @@ Budget two packages: `js-yaml` and `argparse`. `node:test` is built in — do no
 | Subagents have `name` and `description` | `tests/agents.test.mjs` |
 | `.github/` is current, stubs stay trivial | `tests/sync.test.mjs` |
 | No home paths, denied terms, credential shapes, unsafe hooks | `tests/hygiene.test.mjs` |
+| Pre-approved commands stay scoped; no unprompted force push | `tests/settings.test.mjs` |
 | Relative links resolve | `tests/links.test.mjs` |
 | Installer guards reject traversal | `tests/install.test.mjs` |
 | Dependency tree ≤ 2 packages | `.github/workflows/validate.yml` |

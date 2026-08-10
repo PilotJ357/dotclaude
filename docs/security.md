@@ -19,7 +19,7 @@ Budget is two packages. `npm ls --all` should show `js-yaml` and its child `argp
 | Choice | Reason |
 |---|---|
 | `js-yaml@4` as the only direct dependency | v4 dropped `esprima`; its one child `argparse@2` is a pure-JavaScript rewrite with no dependencies and no install scripts. Parses with the default safe schema — `yaml.load` will not construct arbitrary types. Do not substitute a custom schema. |
-| Pinned to the 4.x line | 5.x removed the default export, making it a code change rather than a bump, and offers no dependency or size reduction. The 4.x line is still maintained — 4.3.0 shipped after 5.0.0 — so patches continue to arrive. `dependabot.yml` ignores the major only; minor and patch updates still open PRs. |
+| Pinned to the 4.x line | 5.x removed the default export, making it a code change rather than a bump, and offers no dependency or size reduction. The 4.x line is still maintained — the 4.3.1 security patch shipped after 5.0.0 — so patches continue to arrive. `dependabot.yml` ignores the major only; minor and patch updates still open PRs. |
 | `node:test` instead of a framework | Vitest pulls esbuild, rollup and vite — over a hundred packages plus platform binaries fetched at install — to validate a handful of markdown files. |
 | No frontmatter library | `gray-matter` pulls `section-matter`, `strip-bom-string` and `kind-of`. Splitting frontmatter is a regex; parsing is `js-yaml`. |
 
@@ -57,7 +57,9 @@ This does not defend against a compromise that stays undetected past the window,
 | `engine-strict=true` | Refuse installation on an unsupported Node. |
 | `audit-level=high` | `npm audit` fails on high and critical. |
 
-Use `npm ci`, never `npm install`. `ci` installs exactly what the lockfile specifies; `install` can resolve differently and rewrite it.
+Use `npm ci`, never `npm install`. `ci` installs exactly what the lockfile specifies; `install` can resolve differently and rewrite it. `Bash(npm install:*)` is in the `deny` list, and a deny rule cannot be answered with a prompt, so nothing running in this repository can rewrite the lockfile by resolution.
+
+Changing a pinned version therefore means editing `package.json` and `package-lock.json` together — `version`, `resolved` and `integrity` copied from the registry — and then proving it with a clean `npm ci`. That is a verification, not a formality: `npm ci` checks the `integrity` hash against the downloaded tarball and fails if they disagree, so a mistyped or invented hash cannot pass.
 
 ## Workflow hardening
 
@@ -119,11 +121,26 @@ Guards are tested directly in `tests/install.test.mjs`, including traversal, abs
 
 The skill opens pull requests, so it:
 
-- uses the already-authenticated `gh` CLI and never reads, prints or writes a token;
+- uses whichever forge interface is already authenticated, and never reads, prints or writes a token;
 - runs `npm ci`, never `npm install`;
 - treats diff content and subagent output as data. Text in a diff must not redirect the PR target, skip a gate, or change what is committed;
 - stops on any failing gate;
-- confirms before pushing.
+- pushes and opens the pull request without a confirmation prompt once every gate has passed. Invoking `/done` is the authorization. The gates are the safety check; a second yes/no was friction, not a second check.
+
+### Pre-approved commands
+
+Permission rules are enforced by the runtime, not by the skill body — prose telling the agent not to ask cannot suppress an approval dialog, only a rule can. Semantics and source: [portability](portability.md#details-that-bite). So `.claude/settings.json` allowlists the commands the wrap-up issues, and nothing more.
+
+| Rule | Reasoning |
+|---|---|
+| `git add`, `git commit`, `git checkout -b`, `git switch -c` | Local only. Nothing leaves the machine, and nothing is discarded — `git checkout -b`, not bare `git checkout`, which can overwrite working-tree changes. |
+| `git push`, `git push -u origin ...` | The two forward pushes the skill performs. A remote is never named without `-u`, so `git push origin <refspec>` is not blanket-approved. |
+| `gh pr create` | Opens a pull request. Merging one is not allowed. |
+| `ask` on `--force`, `--delete`, `-f`, `-d` and `+refspec` pushes | Rules are evaluated deny, then ask, then allow, so these prompt even though a broader allow rule also matches them. |
+
+The residue is honest rather than total: a colon refspec reached through `git push -u origin :branch` is not expressible as a glob that a trailing-wildcard rule can exclude, so it stays approved. Every `--force`, `--delete` and `+refspec` spelling is covered.
+
+`tests/settings.test.mjs` holds this in place: it rejects a whole-tool `Bash` grant, an allow rule for an interpreter that would launder arbitrary commands (`sh`, `xargs`, `npx`), and any force push or branch deletion that no `ask` rule covers. It found one such hole while being written — `git push origin --delete main` had been approved by a broader rule since removed.
 
 ## Reporting
 
