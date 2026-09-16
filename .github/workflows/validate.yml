@@ -64,7 +64,9 @@ jobs:
       - name: Audit dependencies
         run: npm run audit
 
-      # Refuses any dependency version published within the last 3 days.
+      # Refuses any dependency version published within the last 48 hours.
+      # This is where that floor binds for a Dependabot security update, which
+      # cooldown in dependabot.yml does not hold back — see docs/security.md.
       # --strict makes an unreachable registry an error rather than a warning,
       # so this cannot pass by failing open in CI.
       - name: Verify dependency minimum age
