@@ -1,8 +1,16 @@
 # Keeps the SHA pins in .github/workflows/ and the npm lockfile under review
 # rather than letting them rot. Pinning without updates is its own risk.
 #
-# `cooldown` stops Dependabot proposing versions younger than the floor.
-# Rationale, and the lockfile enforcement: docs/security.md.
+# Two paths run from this file, and they are held to different clocks:
+#
+#   Version updates   routine bumps. `cooldown` stops Dependabot proposing
+#                     one before it has aged.
+#   Security updates  opened as soon as an advisory lands. `cooldown` does
+#                     not reach them, so the 48-hour minimum release age is
+#                     enforced against the lockfile by
+#                     scripts/check-dep-age.mjs in CI instead.
+#
+# Sources for that split, and the reasoning: docs/security.md.
 version: 2
 
 updates:
@@ -20,11 +28,23 @@ updates:
       semver-patch-days: 3
       semver-minor-days: 7
       semver-major-days: 14
+    groups:
+      # One pull request per advisory wave rather than one per package.
+      # `applies-to: security-updates` is what points a group at the security
+      # path; a group without it covers version updates only.
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"
     ignore:
       # js-yaml 5.x removed the default export, so it is a code change rather
-      # than a version bump. The 4.x line is still maintained — 4.3.0 shipped
-      # after 5.0.0 — so security fixes continue to arrive through patches,
-      # which are not ignored here. Revisit deliberately once 5.x has settled.
+      # than a version bump. The 4.x line is still maintained — the 4.3.2
+      # security patch shipped after 5.0.0 — so fixes continue to arrive
+      # through patches, which are not ignored here. Revisit deliberately
+      # once 5.x has settled.
+      #
+      # `update-types` constrains version updates only, so this entry does not
+      # stand in the way of a security fix available only in 5.x.
       - dependency-name: js-yaml
         update-types: [version-update:semver-major]
 
@@ -40,3 +60,8 @@ updates:
       - github-actions
     cooldown:
       default-days: 7
+    groups:
+      security:
+        applies-to: security-updates
+        patterns:
+          - "*"

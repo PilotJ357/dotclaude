@@ -3,7 +3,19 @@
  * tested without touching the network. See docs/security.md.
  */
 
-export const DEFAULT_MIN_AGE_DAYS = 3;
+/**
+ * The floor, in days: 48 hours. Nothing installs younger than this.
+ *
+ * It is the only thing standing between the lockfile and a freshly published
+ * package, because the layer above it does not cover every case — Dependabot
+ * `cooldown` holds back version updates but not security updates, and it
+ * cannot see a hand-edited lockfile at all.
+ */
+export const MIN_AGE_FLOOR_DAYS = 2;
+
+/** Threshold applied when nothing overrides it. The floor, by policy. */
+export const DEFAULT_MIN_AGE_DAYS = MIN_AGE_FLOOR_DAYS;
+
 const MS_PER_DAY = 86_400_000;
 
 /**
@@ -54,23 +66,37 @@ export function evaluateAge(publishedAt, minAgeDays, now = new Date()) {
 }
 
 /**
- * Parse deliberate exceptions, e.g. "js-yaml@4.3.0,@scope/pkg@1.0.0".
+ * Resolve a configured threshold against the floor.
  *
- * Exceptions are exact name@version pairs — a bare package name would exempt
- * that dependency forever, which defeats the gate.
+ * An override may raise the wait, never shorten it. A knob that reaches below
+ * 48 hours is the gate switched off, and the urgent case it would be reached
+ * for — a security patch published an hour ago — is the one case where the
+ * gate is doing its job: a compromised release looks exactly like that too.
  *
- * @param {string|undefined} value
- * @returns {Set<string>}
+ * @param {string|number|undefined|null} raw
+ * @returns {{ ok: true, minAgeDays: number } | { ok: false, error: string }}
  */
-export function parseAllowlist(value) {
-  if (!value) return new Set();
+export function resolveMinAgeDays(raw) {
+  if (raw === undefined || raw === null || raw === '') {
+    return { ok: true, minAgeDays: DEFAULT_MIN_AGE_DAYS };
+  }
 
-  return new Set(
-    value
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0 && entry.lastIndexOf('@') > 0),
-  );
+  const minAgeDays = Number(raw);
+
+  if (!Number.isFinite(minAgeDays)) {
+    return { ok: false, error: `invalid minimum age: ${raw}` };
+  }
+
+  if (minAgeDays < MIN_AGE_FLOOR_DAYS) {
+    return {
+      ok: false,
+      error:
+        `minimum age ${minAgeDays} is below the ${MIN_AGE_FLOOR_DAYS}-day floor. ` +
+        'The floor is not configurable — see docs/security.md.',
+    };
+  }
+
+  return { ok: true, minAgeDays };
 }
 
 /** Registry URL for a package's full document, which is the only one carrying `.time`. */

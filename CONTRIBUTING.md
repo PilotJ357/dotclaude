@@ -29,7 +29,7 @@ CI verifies freshness and fails on drift. It does not regenerate.
 | `npm run sync` | Regenerate `.github/` |
 | `npm run sync:check` | Fail if `.github/` is stale |
 | `npm test` | Run the validation suite |
-| `npm run check:deps` | Fail if any dependency was published in the last 3 days |
+| `npm run check:deps` | Fail if any dependency was published in the last 48 hours |
 | `npm run validate` | `sync:check` + tests + `npm audit` + `check:deps` |
 
 `/done` runs all of it plus a docs and coverage audit, then commits, pushes and opens the PR without prompting.
@@ -46,7 +46,7 @@ Do not add `.claude/commands/`. Claude Code exposes skills as `/<name>` already,
 
 ## Dependencies
 
-Budget two packages: `js-yaml` and `argparse`. `node:test` is built in — do not add a test framework. No version published within the last 3 days may be installed; `ALLOW_FRESH_DEPS='name@version'` covers urgent security patches. Rationale and enforcement: [docs/security.md](docs/security.md).
+Budget two packages: `js-yaml` and `argparse`. `node:test` is built in — do not add a test framework. No version published within the last 48 hours may be installed, and that floor has no override — an urgent security patch waits it out like anything else. Rationale and enforcement: [docs/security.md](docs/security.md).
 
 ## What CI enforces
 
@@ -59,6 +59,8 @@ Budget two packages: `js-yaml` and `argparse`. `node:test` is built in — do no
 | Pre-approved commands stay scoped; no unprompted force push | `tests/settings.test.mjs` |
 | Relative links resolve | `tests/links.test.mjs` |
 | Installer guards reject traversal | `tests/install.test.mjs` |
+| Security updates stay routed; no cooldown below the floor | `tests/dependabot.test.mjs` |
+| No dependency younger than 48 hours | `tests/dep-age.test.mjs`, `npm run check:deps` |
 | Dependency tree ≤ 2 packages | `.github/workflows/validate.yml` |
 | Every action pinned to a 40-char SHA | `.github/workflows/validate.yml` |
 | No high or critical advisories | `npm audit` |

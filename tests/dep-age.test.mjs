@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 
 import {
   DEFAULT_MIN_AGE_DAYS,
+  MIN_AGE_FLOOR_DAYS,
   collectLockPackages,
   ageInDays,
   evaluateAge,
-  parseAllowlist,
+  resolveMinAgeDays,
   packumentUrl,
 } from '../scripts/lib/dep-age.mjs';
 
@@ -101,29 +102,52 @@ describe('evaluateAge', () => {
     assert.equal(evaluateAge(daysAgo(0.01), 3, NOW).ok, false);
   });
 
-  test('default threshold is three days', () => {
-    assert.equal(DEFAULT_MIN_AGE_DAYS, 3);
-    assert.equal(evaluateAge(daysAgo(2), DEFAULT_MIN_AGE_DAYS, NOW).ok, false);
-    assert.equal(evaluateAge(daysAgo(4), DEFAULT_MIN_AGE_DAYS, NOW).ok, true);
+  test('default threshold is 48 hours', () => {
+    assert.equal(DEFAULT_MIN_AGE_DAYS, 2);
+    assert.equal(evaluateAge(daysAgo(1.9), DEFAULT_MIN_AGE_DAYS, NOW).ok, false);
+    assert.equal(evaluateAge(daysAgo(2.1), DEFAULT_MIN_AGE_DAYS, NOW).ok, true);
   });
 });
 
-describe('parseAllowlist', () => {
-  test('parses exact name@version pairs', () => {
-    const allow = parseAllowlist('js-yaml@4.3.0, @scope/pkg@1.0.0');
-    assert.ok(allow.has('js-yaml@4.3.0'));
-    assert.ok(allow.has('@scope/pkg@1.0.0'));
+describe('resolveMinAgeDays', () => {
+  test('falls back to the default when nothing is configured', () => {
+    for (const raw of [undefined, null, '']) {
+      assert.deepEqual(resolveMinAgeDays(raw), { ok: true, minAgeDays: DEFAULT_MIN_AGE_DAYS });
+    }
   });
 
-  test('is empty when unset', () => {
-    assert.equal(parseAllowlist(undefined).size, 0);
-    assert.equal(parseAllowlist('').size, 0);
+  test('accepts an override that raises the threshold', () => {
+    assert.deepEqual(resolveMinAgeDays('7'), { ok: true, minAgeDays: 7 });
+    assert.deepEqual(resolveMinAgeDays(14), { ok: true, minAgeDays: 14 });
   });
 
-  test('ignores bare package names', () => {
-    // A bare name would exempt the dependency at every future version.
-    assert.equal(parseAllowlist('js-yaml').size, 0);
-    assert.equal(parseAllowlist('@scope/pkg').size, 0);
+  test('accepts an override sitting exactly on the floor', () => {
+    assert.deepEqual(resolveMinAgeDays(MIN_AGE_FLOOR_DAYS), {
+      ok: true,
+      minAgeDays: MIN_AGE_FLOOR_DAYS,
+    });
+  });
+
+  test('refuses an override below the floor', () => {
+    // The floor is the whole gate. A knob that reaches under it is the gate
+    // switched off, and it would be reached for exactly when it matters.
+    for (const raw of ['0', '1', '1.99', -5]) {
+      const resolved = resolveMinAgeDays(raw);
+      assert.equal(resolved.ok, false);
+      assert.match(resolved.error, /below the 2-day floor/);
+    }
+  });
+
+  test('refuses a value that is not a number', () => {
+    for (const raw of ['soon', 'NaN', {}]) {
+      const resolved = resolveMinAgeDays(raw);
+      assert.equal(resolved.ok, false);
+      assert.match(resolved.error, /invalid minimum age/);
+    }
+  });
+
+  test('the floor is 48 hours', () => {
+    assert.equal(MIN_AGE_FLOOR_DAYS, 2);
   });
 });
 

@@ -33,7 +33,7 @@ Detail: [docs/authoring.md](docs/authoring.md).
 Repo distributes content that executes on other machines.
 
 - Dependency budget two packages: `js-yaml` + child `argparse`. Tests use `node:test`. Additions need PR justification.
-- No dependency version published within last 3 days. `npm run check:deps` enforces; Dependabot `cooldown` waits out same window.
+- No dependency version installed within 48 hours of publication. Floor absolute — no flag, env var or allowlist below it. `npm run check:deps` enforces against lockfile. Dependabot cooldown holds routine updates longer; why that is not enough: [docs/security.md](docs/security.md).
 - `.npmrc` sets `ignore-scripts=true`. `npm ci`, never `npm install`.
 - Actions pinned to 40-char SHAs. Workflows: no write permissions, no secrets referenced.
 - Hooks run automatically on contributors' machines. Changes to `.claude/hooks/` or `hooks` block in `.claude/settings.json` privileged — gated by `tests/hygiene.test.mjs` + `CODEOWNERS`.

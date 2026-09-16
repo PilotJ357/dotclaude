@@ -1,29 +1,29 @@
 #!/usr/bin/env node
 /**
- * Refuse dependency versions published within the last N days. Enforces the
- * floor against the lockfile — Dependabot cooldown only stops proposals, and
- * cannot see a manual `npm install`. Rationale: docs/security.md.
+ * Refuse dependency versions published within the last N days, where N is
+ * never below 48 hours. Enforces the floor against the lockfile — Dependabot
+ * cooldown only stops proposals, does not cover security updates at all, and
+ * cannot see a hand-edited lockfile. Rationale: docs/security.md.
  *
  *   node scripts/check-dep-age.mjs             warn if the registry is unreachable
  *   node scripts/check-dep-age.mjs --strict    treat registry failure as an error
  *
  * Options:
- *   --min-age-days=N   Override the threshold (env: MIN_DEP_AGE_DAYS)
+ *   --min-age-days=N   Raise the threshold (env: MIN_DEP_AGE_DAYS). The
+ *                      48-hour floor cannot be lowered, including for an
+ *                      urgent security patch: a fresh release is exactly what
+ *                      a compromised one looks like.
  *   --strict           Fail if the registry cannot be reached
  *   --json             Machine-readable output
- *
- * Urgent security patches that must land unaged: ALLOW_FRESH_DEPS takes exact
- * name@version pairs — ALLOW_FRESH_DEPS='js-yaml@4.3.1' npm run check:deps
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import { REPO_ROOT } from './lib/paths.mjs';
 import {
-  DEFAULT_MIN_AGE_DAYS,
   collectLockPackages,
   evaluateAge,
-  parseAllowlist,
+  resolveMinAgeDays,
   packumentUrl,
 } from './lib/dep-age.mjs';
 
@@ -32,19 +32,17 @@ const REQUEST_TIMEOUT_MS = 15_000;
 function parseArgs(argv) {
   const flag = (name) => argv.find((arg) => arg.startsWith(`--${name}=`))?.split('=')[1];
 
-  const raw = flag('min-age-days') ?? process.env.MIN_DEP_AGE_DAYS;
-  const minAgeDays = raw === undefined ? DEFAULT_MIN_AGE_DAYS : Number(raw);
+  const resolved = resolveMinAgeDays(flag('min-age-days') ?? process.env.MIN_DEP_AGE_DAYS);
 
-  if (!Number.isFinite(minAgeDays) || minAgeDays < 0) {
-    console.error(`invalid --min-age-days: ${raw}`);
+  if (!resolved.ok) {
+    console.error(`dep-age: ${resolved.error}`);
     process.exit(2);
   }
 
   return {
-    minAgeDays,
+    minAgeDays: resolved.minAgeDays,
     strict: argv.includes('--strict'),
     json: argv.includes('--json'),
-    allowlist: parseAllowlist(process.env.ALLOW_FRESH_DEPS),
   };
 }
 
@@ -75,7 +73,6 @@ async function main() {
 
   const now = new Date();
   const violations = [];
-  const allowed = [];
   const unknown = [];
 
   // Fetch once per distinct name, not once per package entry.
@@ -108,27 +105,15 @@ async function main() {
     const { ok, ageDays } = evaluateAge(publishedAt, options.minAgeDays, now);
     if (ok) continue;
 
-    const entry = { ...pkg, publishedAt, ageDays };
-    if (options.allowlist.has(`${pkg.name}@${pkg.version}`)) {
-      allowed.push(entry);
-    } else {
-      violations.push(entry);
-    }
+    violations.push({ ...pkg, publishedAt, ageDays });
   }
 
   if (options.json) {
     console.log(JSON.stringify(
-      { minAgeDays: options.minAgeDays, checked: packages.length, violations, allowed, unknown },
+      { minAgeDays: options.minAgeDays, checked: packages.length, violations, unknown },
       null,
       2,
     ));
-  }
-
-  for (const pkg of allowed) {
-    console.warn(
-      `dep-age: ALLOWED ${pkg.name}@${pkg.version} — ${pkg.ageDays.toFixed(1)}d old, ` +
-        'permitted via ALLOW_FRESH_DEPS',
-    );
   }
 
   if (unknown.length > 0 && options.strict) {
@@ -150,8 +135,8 @@ async function main() {
       );
     }
     console.error(
-      '\nWait for the version to age, pin to an older one, or set ' +
-        'ALLOW_FRESH_DEPS if this is a security patch that cannot wait.',
+      '\nWait for the version to age, or pin to an older one. A security ' +
+        'patch waits out the 48 hours like anything else.',
     );
     process.exitCode = 1;
     return;
@@ -160,12 +145,8 @@ async function main() {
   if (!options.json) {
     const skipped = unknown.length > 0 ? `, ${unknown.length} with no publish time` : '';
     console.log(
-      allowed.length > 0
-        ? `dep-age: ${packages.length} package(s) checked, ` +
-            `${allowed.length} below the ${options.minAgeDays}-day threshold but ` +
-            `permitted via ALLOW_FRESH_DEPS${skipped}`
-        : `dep-age: ${packages.length} package(s) checked, all at least ` +
-            `${options.minAgeDays} day(s) old${skipped}`,
+      `dep-age: ${packages.length} package(s) checked, all at least ` +
+        `${options.minAgeDays} day(s) old${skipped}`,
     );
   }
 }
